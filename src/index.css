@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 228 25% 96%;
+    --foreground: 230 35% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 230 35% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 35% 15%;
+
+    --primary: 231 60% 28%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 230 30% 94%;
+    --secondary-foreground: 231 60% 28%;
+
+    --muted: 228 20% 92%;
+    --muted-foreground: 228 12% 50%;
+
+    --accent: 231 45% 95%;
+    --accent-foreground: 231 60% 28%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 228 20% 88%;
+    --input: 228 20% 88%;
+    --ring: 231 60% 48%;
+
+    --radius: 0.75rem;
+
+    --income: 220 70% 55%;
+    --positive: 152 55% 38%;
+    --negative: 0 72% 51%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 230 35% 15%;
+    --sidebar-primary: 231 60% 28%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 231 45% 95%;
+    --sidebar-accent-foreground: 231 60% 28%;
+    --sidebar-border: 228 20% 88%;
+    --sidebar-ring: 231 60% 48%;
+
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+
+  .dark {
+    --background: 230 25% 8%;
+    --foreground: 220 20% 92%;
+    --card: 230 22% 12%;
+    --card-foreground: 220 20% 92%;
+    --popover: 230 22% 12%;
+    --popover-foreground: 220 20% 92%;
+    --primary: 224 76% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 20% 18%;
+    --secondary-foreground: 220 20% 92%;
+    --muted: 230 18% 16%;
+    --muted-foreground: 228 12% 55%;
+    --accent: 230 20% 18%;
+    --accent-foreground: 220 20% 92%;
+    --destructive: 0 62% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 230 18% 20%;
+    --input: 230 18% 20%;
+    --ring: 224 76% 60%;
+    --sidebar-background: 230 22% 10%;
+    --sidebar-foreground: 220 20% 92%;
+    --sidebar-primary: 224 76% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 20% 16%;
+    --sidebar-accent-foreground: 220 20% 92%;
+    --sidebar-border: 230 18% 20%;
+    --sidebar-ring: 224 76% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
