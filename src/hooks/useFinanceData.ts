@@ -60,7 +60,7 @@ function loadCurrency(): string {
 }
 
 export function useFinanceData(userId: string | undefined) {
-  const [data, setData] = useState<FinanceData>(() => userId ? loadFromStorage() : defaultData);
+  const [data, setData] = useState<FinanceData>(loadFromStorage);
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
   const [currency, setCurrency] = useState<string>(loadCurrency);
   const [loading, setLoading] = useState(false);
@@ -206,23 +206,27 @@ export function useFinanceData(userId: string | undefined) {
   }, []);
 
   const save = useCallback(async () => {
-    if (!userId) return;
     setLoading(true);
     try {
+      // Always save to localStorage for offline use and immediate backup
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       localStorage.setItem(CURRENCY_KEY, currency);
 
-      const { error } = await supabase
-        .from("budget_settings")
-        .upsert({
-          id: userId,
-          user_id: userId,
-          finance_data: data as any,
-          dark_mode: document.documentElement.classList.contains("dark"),
-          updated_at: new Date().toISOString(),
-        });
+      // Only save to Supabase if user is logged in
+      if (userId) {
+        const { error } = await supabase
+          .from("budget_settings")
+          .upsert({
+            id: userId,
+            user_id: userId,
+            finance_data: data as any,
+            dark_mode: document.documentElement.classList.contains("dark"),
+            updated_at: new Date().toISOString(),
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
+
       toast.success("Saved!");
     } catch (e: any) {
       console.error("Save error:", e);
