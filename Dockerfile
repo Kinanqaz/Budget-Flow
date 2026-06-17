@@ -23,6 +23,7 @@ WORKDIR /app
 RUN apk add --no-cache tini
 COPY --from=server /app/node_modules/ ./node_modules/
 COPY --from=server /app/server/dist/ ./server/dist/
+COPY --from=server /app/server/package.json ./server/
 COPY --from=frontend /app/dist/ ./dist/
 COPY package.json ./
 
