@@ -11,9 +11,10 @@ interface SaveBody {
 export async function budgetRoutes(app: FastifyInstance) {
   app.get("/api/budget", { preHandler: [authMiddleware] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const db = getDB();
+    const user = request.user as { id: string; username: string; email: string };
     const row = db.prepare(
       "SELECT finance_data, dark_mode, currency, updated_at FROM budget_data WHERE user_id = ?"
-    ).get(request.user.id) as { finance_data: string; dark_mode: number; currency: string; updated_at: string } | undefined;
+    ).get(user.id) as { finance_data: string; dark_mode: number; currency: string; updated_at: string } | undefined;
 
     if (!row) {
       return reply.send({
@@ -39,6 +40,7 @@ export async function budgetRoutes(app: FastifyInstance) {
     }
 
     const db = getDB();
+    const user = request.user as { id: string; username: string; email: string };
     const json = JSON.stringify(finance_data);
 
     db.prepare(`
@@ -49,7 +51,7 @@ export async function budgetRoutes(app: FastifyInstance) {
         dark_mode = excluded.dark_mode,
         currency = excluded.currency,
         updated_at = datetime('now')
-    `).run(request.user.id, json, dark_mode ? 1 : 0, currency);
+    `).run(user.id, json, dark_mode ? 1 : 0, currency);
 
     return reply.send({ success: true });
   });

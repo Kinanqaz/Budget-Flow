@@ -84,12 +84,13 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.get("/api/auth/me", { preHandler: [authMiddleware] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(request.user);
+    return reply.send(request.user as { id: string; username: string; email: string });
   });
 
   app.delete("/api/auth/account", { preHandler: [authMiddleware] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const db = getDB();
-    const result = db.prepare("DELETE FROM users WHERE id = ?").run(request.user.id);
+    const user = request.user as { id: string; username: string; email: string };
+    const result = db.prepare("DELETE FROM users WHERE id = ?").run(user.id);
     if (result.changes === 0) {
       return reply.status(404).send({ error: "User not found" });
     }

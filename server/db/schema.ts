@@ -1,17 +1,17 @@
-import Database from "better-sqlite3";
+import BetterSqlite3 from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { config } from "../config";
 
-let db: Database | null = null;
+let db: ReturnType<typeof BetterSqlite3> | null = null;
 
-export function initDB(): Database {
+export function initDB(): ReturnType<typeof BetterSqlite3> {
   if (db) return db;
 
   const dir = config.DATA_DIR;
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  db = new Database(path.join(dir, "budgetflow.db"));
+  db = new BetterSqlite3(path.join(dir, "budgetflow.db"));
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
@@ -42,7 +42,7 @@ export function initDB(): Database {
   return db;
 }
 
-export function getDB(): Database {
+export function getDB(): ReturnType<typeof BetterSqlite3> {
   if (!db) throw new Error("Database not initialized. Call initDB() first.");
   return db;
 }
