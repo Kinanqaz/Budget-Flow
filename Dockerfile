@@ -1,23 +1,23 @@
-# Stage 1: Build frontend
-FROM node:20-alpine AS frontend
+# Stage 1: Install all dependencies (with build tools for native modules)
+FROM node:20-alpine AS deps
 WORKDIR /app
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci
+
+# Stage 2: Build frontend
+FROM deps AS frontend
 COPY vite.config.ts tsconfig*.json postcss.config.js tailwind.config.ts components.json index.html ./
 COPY src/ ./src/
 COPY public/ ./public/
 RUN npm run build
 
-# Stage 2: Build server
-FROM node:20-alpine AS server
-WORKDIR /app
-RUN apk add --no-cache python3 make g++
-COPY package*.json ./
-RUN npm ci
+# Stage 3: Build server
+FROM deps AS server
 COPY server/ ./server/
 RUN npx tsc -p server/tsconfig.json
 
-# Stage 3: Production
+# Stage 4: Production
 FROM node:20-alpine
 WORKDIR /app
 RUN apk add --no-cache tini
@@ -28,6 +28,5 @@ COPY package.json ./
 
 EXPOSE 3000
 VOLUME ["/app/data"]
-
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "server/dist/index.js"]
