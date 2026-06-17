@@ -44,6 +44,11 @@ async function start() {
   const distPath = path.join(__dirname, "../dist");
   if (fs.existsSync(distPath)) {
     await app.register(fastifyStatic, { root: distPath, wildcard: false });
+
+    app.get("/", async (request, reply) => {
+      return reply.sendFile("index.html");
+    });
+
     app.setNotFoundHandler((request, reply) => {
       if (!request.url.startsWith("/api")) {
         return reply.sendFile("index.html");
