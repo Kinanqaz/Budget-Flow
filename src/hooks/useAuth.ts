@@ -1,65 +1,81 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+import type { ApiUser } from "@/types/api";
+import { api, TOKEN_KEY } from "@/lib/api";
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState<string>("");
-
-  const fetchUsername = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", userId)
-      .maybeSingle();
-    if (data?.username) setUsername(data.username);
-  };
+  const [authEnabled, setAuthEnabled] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    api.auth.setupStatus().then((status) => {
+      setAuthEnabled(status.authEnabled);
+
+      if (!status.authEnabled) {
+        setUser({ id: "default", username: "admin", email: "admin@local" });
+        setUsername("admin");
         setLoading(false);
-        if (session?.user) {
-          setTimeout(() => fetchUsername(session.user.id), 0);
-        } else {
-          setUsername("");
-        }
+        return;
       }
-    );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) fetchUsername(session.user.id);
-    });
+      if (status.needsSetup) {
+        setLoading(false);
+        return;
+      }
 
-    return () => subscription.unsubscribe();
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      api.auth.me()
+        .then((u) => {
+          setUser(u);
+          setUsername(u.username);
+        })
+        .catch(() => api.clearToken())
+        .finally(() => setLoading(false));
+    }).catch(() => setLoading(false));
   }, []);
 
-  const signUp = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { username: name } },
-    });
-    if (!error) setUsername(name);
-    return { error };
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { token, user: u } = await api.auth.login(email, password);
+      api.setToken(token);
+      setUser(u);
+      setUsername(u.username);
+      return { error: null };
+    } catch (e: any) {
+      return { error: e };
+    }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+  const signUp = async (email: string, password: string, name: string) => {
+    try {
+      const { token, user: u } = await api.auth.register(name, email, password);
+      api.setToken(token);
+      setUser(u);
+      setUsername(u.username);
+      return { error: null };
+    } catch (e: any) {
+      return { error: e };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    api.clearToken();
+    setUser(null);
     setUsername("");
   };
 
-  return { user, session, loading, username, signUp, signIn, signOut };
+  const deleteAccount = async () => {
+    await api.auth.deleteAccount();
+    api.clearToken();
+    setUser(null);
+    setUsername("");
+  };
+
+  return { user, loading, username, authEnabled, signIn, signUp, signOut, deleteAccount };
 }

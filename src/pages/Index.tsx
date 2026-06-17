@@ -8,15 +8,15 @@ import { PanelLeftOpen, Moon, Sun, ChevronDown, GitBranch, PieChart } from "luci
 import DonutChart from "@/components/finance/DonutChart";
 
 const Index = () => {
-  const { user, loading: authLoading, username, signIn, signUp, signOut } = useAuth();
+  const { user, loading: authLoading, username, authEnabled, signIn, signUp, signOut, deleteAccount } = useAuth();
 
   const {
     data, stats, darkMode, setDarkMode, currency, setCurrency, currencies, loading,
     updateIncome, addIncome, removeIncome,
     updateCategory, addCategory, removeCategory,
     updateItem, addItem, removeItem,
-    save, saveToJson, importFromJson, loadFromSupabase,
-  } = useFinanceData(user?.id);
+    save, saveToJson, importFromJson, loadFromServer,
+  } = useFinanceData(user?.id, !!user);
 
   const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
 
@@ -25,8 +25,8 @@ const Index = () => {
   const [chartType, setChartType] = useState<"sankey" | "donut">("sankey");
 
   useEffect(() => {
-    if (user?.id) loadFromSupabase();
-  }, [user?.id, loadFromSupabase]);
+    if (user && !authLoading) loadFromServer();
+  }, [user, authLoading, loadFromServer]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -134,9 +134,11 @@ const Index = () => {
             user={user}
             username={username}
             loading={authLoading}
+            authEnabled={authEnabled}
             signIn={signIn}
             signUp={signUp}
             signOut={signOut}
+            deleteAccount={deleteAccount}
           />
         </div>
 

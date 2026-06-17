@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { LogOut, LogIn, UserPlus, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { User } from "@supabase/supabase-js";
+import type { ApiUser } from "@/types/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,18 +13,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
 
 interface AuthBarProps {
-  user: User | null;
+  user: ApiUser | null;
   username: string;
   loading: boolean;
+  authEnabled: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
-const AuthBar = ({ user, username, loading, signIn, signUp, signOut }: AuthBarProps) => {
+const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut, deleteAccount }: AuthBarProps) => {
   const [showForm, setShowForm] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -33,19 +34,12 @@ const AuthBar = ({ user, username, loading, signIn, signUp, signOut }: AuthBarPr
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  if (!authEnabled) return null;
+
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error("Not logged in");
-        return;
-      }
-      const { data, error } = await supabase.functions.invoke("delete-account", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      await deleteAccount();
       toast.success("Your account and all data have been deleted.");
       await signOut();
     } catch (e: any) {
@@ -122,9 +116,9 @@ const AuthBar = ({ user, username, loading, signIn, signUp, signOut }: AuthBarPr
         ? await signIn(email, password)
         : await signUp(email, password, name);
       if (error) {
-        toast.error(error.message);
+        toast.error(error.message || "Authentication error");
       } else if (!isLogin) {
-        toast.success("Registration successful! Please confirm your email.");
+        toast.success("Registration successful! You are now logged in.");
       }
       if (!error && isLogin) setShowForm(false);
     } finally {
@@ -159,7 +153,7 @@ const AuthBar = ({ user, username, loading, signIn, signUp, signOut }: AuthBarPr
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           className="w-28 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <button

@@ -1,7 +1,7 @@
-import { useState, useCallback, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { FinanceData, Stats } from "@/types/finance";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 const STORAGE_KEY = "budgetflow-data";
 const CURRENCY_KEY = "budgetflow-currency";
@@ -59,11 +59,20 @@ function loadCurrency(): string {
   return "€";
 }
 
-export function useFinanceData(userId: string | undefined) {
+export function useFinanceData(userId: string | undefined, authenticated: boolean) {
   const [data, setData] = useState<FinanceData>(loadFromStorage);
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
-  const [currency, setCurrency] = useState<string>(loadCurrency);
+  const [currency, setCurrencyState] = useState<string>(loadCurrency);
   const [loading, setLoading] = useState(false);
+  const dataRef = useRef(data);
+  const darkModeRef = useRef(darkMode);
+  const currencyRef = useRef(currency);
+  const userIdRef = useRef(userId);
+
+  dataRef.current = data;
+  darkModeRef.current = darkMode;
+  currencyRef.current = currency;
+  userIdRef.current = userId;
 
   const stats: Stats = useMemo(() => {
     const income = Math.round(data.income.reduce((s, i) => s + (i.value || 0), 0));
@@ -75,24 +84,44 @@ export function useFinanceData(userId: string | undefined) {
     return { income, cats, expenses, remaining: income - expenses };
   }, [data]);
 
-  const loadFromSupabase = useCallback(async () => {
-    if (!userId) return;
-    const { data: row } = await supabase
-      .from("budget_settings")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (row) {
-      const fd = row.finance_data as unknown as FinanceData;
-      if (fd && fd.income && fd.categories) {
-        setData(fd);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(fd));
+  const loadFromServer = useCallback(async () => {
+    if (!authenticated) return;
+    try {
+      const row = await api.budget.get();
+      if (row && row.finance_data) {
+        const fd = row.finance_data;
+        if (fd.income && fd.categories) {
+          setData(fd);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(fd));
+        }
+        setDarkMode(row.dark_mode);
+        document.documentElement.classList.toggle("dark", row.dark_mode);
+        if (row.currency) {
+          setCurrencyState(row.currency);
+          localStorage.setItem(CURRENCY_KEY, row.currency);
+        }
       }
-      setDarkMode(row.dark_mode);
-      document.documentElement.classList.toggle("dark", row.dark_mode);
+    } catch {
+      // Server unavailable, use localStorage cache
     }
-  }, [userId]);
+  }, [authenticated]);
+
+  const saveToServer = useCallback(async () => {
+    if (!userIdRef.current) return;
+    try {
+      await api.budget.save(dataRef.current, darkModeRef.current, currencyRef.current);
+    } catch {
+      // Server save failed, data is still in localStorage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const timer = setTimeout(() => {
+      saveToServer();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [data, darkMode, currency, userId, saveToServer]);
 
   const updateIncome = useCallback((index: number, field: "name" | "value", val: string | number) => {
     setData((d) => {
@@ -193,7 +222,7 @@ export function useFinanceData(userId: string | undefined) {
         } else {
           toast.error("Invalid JSON format");
         }
-      } catch (err) {
+      } catch {
         toast.error("Failed to parse JSON file");
       }
     };
@@ -201,46 +230,33 @@ export function useFinanceData(userId: string | undefined) {
   }, []);
 
   const setCurrencyAndSave = useCallback((c: string) => {
-    setCurrency(c);
+    setCurrencyState(c);
     localStorage.setItem(CURRENCY_KEY, c);
   }, []);
 
   const save = useCallback(async () => {
     setLoading(true);
     try {
-      // Always save to localStorage for offline use and immediate backup
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       localStorage.setItem(CURRENCY_KEY, currency);
 
-      // Only save to Supabase if user is logged in
       if (userId) {
-        const { error } = await supabase
-          .from("budget_settings")
-          .upsert({
-            id: userId,
-            user_id: userId,
-            finance_data: data as any,
-            dark_mode: document.documentElement.classList.contains("dark"),
-            updated_at: new Date().toISOString(),
-          });
-
-        if (error) throw error;
+        await api.budget.save(data, darkMode, currency);
       }
 
       toast.success("Saved!");
-    } catch (e: any) {
-      console.error("Save error:", e);
-      toast.error("Error saving: " + (e.message || "Unknown"));
+    } catch {
+      toast.success("Saved locally!");
     } finally {
       setLoading(false);
     }
-  }, [data, userId]);
+  }, [data, darkMode, currency, userId]);
 
   return {
     data, stats, darkMode, setDarkMode, currency, setCurrency: setCurrencyAndSave, currencies: defaultCurrencies, loading,
     updateIncome, addIncome, removeIncome,
     updateCategory, addCategory, removeCategory,
     updateItem, addItem, removeItem,
-    save, saveToJson, importFromJson, loadFromSupabase,
+    save, saveToJson, importFromJson, loadFromServer,
   };
 }

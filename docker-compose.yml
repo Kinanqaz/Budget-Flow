@@ -1,0 +1,19 @@
+services:
+  budgetflow:
+    build: .
+    container_name: budgetflow
+    ports:
+      - "3000:3000"
+    volumes:
+      - budgetflow-data:/app/data
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DATA_DIR=/app/data
+      - JWT_SECRET=${JWT_SECRET:-please-change-this-secret}
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    restart: unless-stopped
+
+volumes:
+  budgetflow-data:
