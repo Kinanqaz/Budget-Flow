@@ -43,17 +43,10 @@ async function start() {
 
   const distPath = path.join(__dirname, "../dist");
   if (fs.existsSync(distPath)) {
-    // Register static file serving with wildcard: false so that
-    // only actual existing files are served (not a catch-all wildcard route).
-    // This allows setNotFoundHandler below to handle SPA fallback routing.
     await app.register(fastifyStatic, {
       root: distPath,
-      wildcard: false,
-      index: ["index.html"],
     });
 
-    // SPA fallback: for any non-API request that doesn't match a static file,
-    // serve index.html to let the client-side router handle the route.
     app.setNotFoundHandler((request, reply) => {
       if (!request.url.startsWith("/api")) {
         return reply.sendFile("index.html");

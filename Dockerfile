@@ -32,6 +32,7 @@ RUN apk add --no-cache tini
 
 # Copy only what's needed - server runtime
 COPY --from=server /app/server/dist/ ./server/dist/
+COPY --from=server /app/server/package.json ./server/
 COPY --from=server /app/package.json ./package.json
 COPY --from=server /app/node_modules/ ./node_modules/
 
