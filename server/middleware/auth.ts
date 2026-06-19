@@ -16,6 +16,6 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
       email: payload.email,
     };
   } catch {
-    reply.status(401).send({ error: "Unauthorized" });
+    return reply.status(401).send({ error: "Unauthorized" });
   }
 }

@@ -126,8 +126,8 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     if (!userIdRef.current) return;
     try {
       await api.budget.save(dataRef.current, darkModeRef.current, currencyRef.current);
-    } catch {
-      // Server save failed, data is still in localStorage
+    } catch (err) {
+      console.error("Auto-save failed:", err);
     }
   }, []);
 
@@ -260,9 +260,10 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
         await api.budget.save(data, darkMode, currency);
       }
 
-      toast.success("Saved!");
-    } catch {
-      toast.success("Saved locally!");
+      toast.success(userId ? "Saved to server!" : "Saved locally!");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Save failed: ${message}`);
     } finally {
       setLoading(false);
     }

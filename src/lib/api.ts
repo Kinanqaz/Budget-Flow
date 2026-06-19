@@ -38,7 +38,14 @@ class ApiClient {
         }
         if (!res.ok) {
           const body = await res.text();
-          throw new Error(body || `HTTP ${res.status}`);
+          let message = body || `HTTP ${res.status}`;
+          try {
+            const json = JSON.parse(body) as { error?: string; message?: string };
+            message = json.error || json.message || message;
+          } catch {
+            // plain-text error body
+          }
+          throw new Error(message);
         }
         return res.json();
       } catch (err) {

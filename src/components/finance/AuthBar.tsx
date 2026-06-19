@@ -116,11 +116,16 @@ const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut
         ? await signIn(email, password)
         : await signUp(email, password, name);
       if (error) {
-        toast.error(error.message || "Authentication error");
-      } else if (!isLogin) {
-        toast.success("Registration successful! You are now logged in.");
+        const message = error instanceof Error ? error.message : "Authentication error";
+        toast.error(message);
+      } else {
+        if (isLogin) {
+          toast.success("Signed in!");
+          setShowForm(false);
+        } else {
+          toast.success("Registration successful! You are now logged in.");
+        }
       }
-      if (!error && isLogin) setShowForm(false);
     } finally {
       setSubmitting(false);
     }

@@ -39,6 +39,13 @@ export function initDB(): ReturnType<typeof BetterSqlite3> {
     INSERT OR IGNORE INTO schema_version (version) VALUES (1);
   `);
 
+  if (!config.AUTH_ENABLED) {
+    db.prepare(`
+      INSERT OR IGNORE INTO users (id, username, email, password_hash)
+      VALUES ('default', 'admin', 'admin@local', 'disabled')
+    `).run();
+  }
+
   return db;
 }
 

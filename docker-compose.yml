@@ -11,7 +11,7 @@ services:
       - HOST=0.0.0.0
       - DATA_DIR=/app/data
       - JWT_SECRET=${JWT_SECRET:-please-change-this-secret}
-      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     restart: unless-stopped
 
