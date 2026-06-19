@@ -19,14 +19,6 @@ async function start() {
     origin: process.env.CORS_ORIGIN || true,
   });
 
-  await app.register(rateLimit, {
-    max: 10,
-    timeWindow: "1 minute",
-    keyGenerator: (request) => {
-      return request.ip;
-    },
-  });
-
   await app.register(jwt, {
     secret: config.JWT_SECRET,
     sign: { expiresIn: config.JWT_EXPIRES_IN },
@@ -38,7 +30,16 @@ async function start() {
     return { status: "ok", version: "1.0.0" };
   });
 
-  await app.register(authRoutes);
+  // Rate-limit auth endpoints only; budget autosave needs many requests per minute.
+  await app.register(async (scoped) => {
+    await scoped.register(rateLimit, {
+      max: 20,
+      timeWindow: "1 minute",
+      keyGenerator: (request) => request.ip,
+    });
+    await scoped.register(authRoutes);
+  });
+
   await app.register(budgetRoutes);
 
   // Use cwd so Docker (node server/dist/index.js) resolves /app/dist, not /app/server/dist.

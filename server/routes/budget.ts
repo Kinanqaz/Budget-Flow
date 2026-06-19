@@ -8,6 +8,10 @@ interface SaveBody {
   currency: string;
 }
 
+function hasMeaningfulFinanceData(fd: { income?: { value?: number }[] }): boolean {
+  return fd.income?.some((i) => (i.value || 0) > 0) ?? false;
+}
+
 export async function budgetRoutes(app: FastifyInstance) {
   app.get("/api/budget", { preHandler: [authMiddleware] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const db = getDB();
@@ -18,14 +22,24 @@ export async function budgetRoutes(app: FastifyInstance) {
 
     if (!row) {
       return reply.send({
-        finance_data: { income: [], categories: [] },
+        finance_data: null,
         dark_mode: false,
         currency: "€",
       });
     }
 
+    const finance_data = JSON.parse(row.finance_data);
+    if (!hasMeaningfulFinanceData(finance_data)) {
+      return reply.send({
+        finance_data: null,
+        dark_mode: !!row.dark_mode,
+        currency: row.currency,
+        updated_at: row.updated_at,
+      });
+    }
+
     return reply.send({
-      finance_data: JSON.parse(row.finance_data),
+      finance_data,
       dark_mode: !!row.dark_mode,
       currency: row.currency,
       updated_at: row.updated_at,

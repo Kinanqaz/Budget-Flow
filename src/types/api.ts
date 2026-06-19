@@ -12,7 +12,7 @@ export interface ApiAuthResponse {
 }
 
 export interface ApiBudgetData {
-  finance_data: FinanceData;
+  finance_data: FinanceData | null;
   dark_mode: boolean;
   currency: string;
   updated_at?: string;

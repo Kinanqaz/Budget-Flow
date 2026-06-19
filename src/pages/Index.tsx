@@ -15,7 +15,7 @@ const Index = () => {
     updateIncome, addIncome, removeIncome,
     updateCategory, addCategory, removeCategory,
     updateItem, addItem, removeItem,
-    save, saveToJson, importFromJson, loadFromServer,
+    save, saveToJson, importFromJson,
   } = useFinanceData(user?.id, !!user);
 
   const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
@@ -23,10 +23,6 @@ const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
   const [chartType, setChartType] = useState<"sankey" | "donut">("sankey");
-
-  useEffect(() => {
-    if (user && !authLoading) loadFromServer();
-  }, [user, authLoading, loadFromServer]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);

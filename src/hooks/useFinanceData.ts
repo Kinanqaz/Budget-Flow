@@ -59,11 +59,16 @@ function loadCurrency(): string {
   return "€";
 }
 
+function hasMeaningfulFinanceData(fd: FinanceData): boolean {
+  return fd.income?.some((i) => (i.value || 0) > 0) ?? false;
+}
+
 export function useFinanceData(userId: string | undefined, authenticated: boolean) {
   const [data, setData] = useState<FinanceData>(loadFromStorage);
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
   const [currency, setCurrencyState] = useState<string>(loadCurrency);
   const [loading, setLoading] = useState(false);
+  const [serverReady, setServerReady] = useState(!authenticated);
   const dataRef = useRef(data);
   const darkModeRef = useRef(darkMode);
   const currencyRef = useRef(currency);
@@ -88,12 +93,14 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     if (!authenticated) return;
     try {
       const row = await api.budget.get();
-      if (row && row.finance_data) {
-        const fd = row.finance_data;
-        if (fd.income && fd.categories) {
-          setData(fd);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(fd));
-        }
+      if (row?.finance_data && hasMeaningfulFinanceData(row.finance_data)) {
+        setData(row.finance_data);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(row.finance_data));
+      } else if (!hasMeaningfulFinanceData(dataRef.current)) {
+        setData(defaultData);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
+      }
+      if (row) {
         setDarkMode(row.dark_mode);
         document.documentElement.classList.toggle("dark", row.dark_mode);
         if (row.currency) {
@@ -106,6 +113,15 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     }
   }, [authenticated]);
 
+  useEffect(() => {
+    if (!authenticated || !userId) {
+      setServerReady(true);
+      return;
+    }
+    setServerReady(false);
+    loadFromServer().finally(() => setServerReady(true));
+  }, [authenticated, userId, loadFromServer]);
+
   const saveToServer = useCallback(async () => {
     if (!userIdRef.current) return;
     try {
@@ -116,12 +132,12 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !serverReady) return;
     const timer = setTimeout(() => {
       saveToServer();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [data, darkMode, currency, userId, saveToServer]);
+  }, [data, darkMode, currency, userId, serverReady, saveToServer]);
 
   const updateIncome = useCallback((index: number, field: "name" | "value", val: string | number) => {
     setData((d) => {

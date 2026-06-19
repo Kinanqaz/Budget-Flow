@@ -63,7 +63,7 @@ async function buildApp() {
 }
 
 describe("Budget Routes", () => {
-  it("GET /api/budget returns default empty data when no row exists", async () => {
+  it("GET /api/budget returns null finance_data when no row exists", async () => {
     const app = await buildApp();
     const res = await app.inject({
       method: "GET",
@@ -71,8 +71,7 @@ describe("Budget Routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body.finance_data.income).toEqual([]);
-    expect(body.finance_data.categories).toEqual([]);
+    expect(body.finance_data).toBeNull();
     expect(body.dark_mode).toBe(false);
     expect(body.currency).toBe("€");
   });
