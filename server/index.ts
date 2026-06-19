@@ -41,7 +41,8 @@ async function start() {
   await app.register(authRoutes);
   await app.register(budgetRoutes);
 
-  const distPath = path.join(__dirname, "../dist");
+  // Use cwd so Docker (node server/dist/index.js) resolves /app/dist, not /app/server/dist.
+  const distPath = path.join(process.cwd(), "dist");
   if (fs.existsSync(distPath)) {
     await app.register(fastifyStatic, {
       root: distPath,
