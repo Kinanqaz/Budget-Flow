@@ -35,69 +35,75 @@
 
 ## Self-Hosting
 
-### Quick Start with Docker
+The recommended way to run BudgetFlow is using Docker Compose. Since the project is configured with GitHub Actions, pre-built Docker images are automatically published to the GitHub Container Registry (GHCR).
 
-1. Create a `docker-compose.yml` file:
-```yaml
-services:
-  budgetflow:
-    image: ghcr.io/kinan/budgetflow:latest
-    container_name: budgetflow
-    ports:
-      - "3000:3000"
-    volumes:
-      - budgetflow-data:/app/data
-    environment:
-      - JWT_SECRET=your-secure-random-string
-      - AUTH_ENABLED=true
-    restart: unless-stopped
+### Quick Start with Docker Compose
 
-volumes:
-  budgetflow-data:
-```
+1. Create a directory for BudgetFlow and navigate into it:
+   ```bash
+   mkdir -p budgetflow && cd budgetflow
+   ```
 
-2. Start the container:
-```bash
-docker-compose up -d
-```
+2. Create a `docker-compose.yml` file:
+   ```yaml
+   services:
+     budgetflow:
+       image: ghcr.io/kinanqaz/budget-flow:latest
+       container_name: budgetflow
+       ports:
+         - "3000:3000"
+       volumes:
+         - budgetflow-data:/app/data
+       environment:
+         - PORT=3000
+         - HOST=0.0.0.0
+         - DATA_DIR=/app/data
+         - JWT_SECRET=your-secure-random-string # Generate a long secure secret for login security
+         - AUTH_ENABLED=true                     # Set to false to disable logins completely
+       restart: unless-stopped
 
-3. Access the app at `http://localhost:3000`
+   volumes:
+     budgetflow-data:
+   ```
+
+3. Start the container in the background:
+   ```bash
+   docker compose up -d
+   ```
+
+4. Open your web browser and go to `http://<YOUR_SERVER_IP>:3000`. If `AUTH_ENABLED` is set to `true`, the app will guide you through setting up your administrator account.
+
+---
 
 ### Configuration Options
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3000` | Server port |
-| `HOST` | `0.0.0.0` | Server host |
-| `DATA_DIR` | `./data` | Path to store SQLite database |
-| `JWT_SECRET` | - | **Required.** Secret key for JWT tokens |
+| `PORT` | `3000` | Server port inside the container |
+| `HOST` | `0.0.0.0` | Host binding for server socket |
+| `DATA_DIR` | `/app/data` | Directory where the SQLite database is stored |
+| `JWT_SECRET` | - | Secret key used to sign session tokens. Automatically generated at startup if missing. |
 | `JWT_EXPIRES_IN` | `7d` | Token expiration time |
-| `AUTH_ENABLED` | `true` | Enable/disable authentication |
-| `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
+| `AUTH_ENABLED` | `true` | Enable/disable authentication. If set to `false`, users bypass logins and use a default administrator account. |
+| `LOG_LEVEL` | `info` | Server log level (`debug`, `info`, `warn`, `error`) |
 
-### Build from Source
+---
 
-1. Clone the repository:
-```bash
-git clone https://github.com/kinan/budgetflow.git
-cd budgetflow
-```
+### Updating the Application
 
-2. Build the Docker image:
-```bash
-docker build -t budgetflow .
-```
+Since your image is hosted on GitHub Packages, updates are lightweight and instant:
 
-3. Run with environment variables:
-```bash
-docker run -d \
-  --name budgetflow \
-  -p 3000:3000 \
-  -v budgetflow-data:/app/data \
-  -e JWT_SECRET=your-secret-key \
-  -e AUTH_ENABLED=true \
-  budgetflow
-```
+1. Navigate to your app directory:
+   ```bash
+   cd budgetflow
+   ```
+
+2. Pull the latest image, restart the container, and clean up the old image files:
+   ```bash
+   docker compose pull
+   docker compose up -d
+   docker system prune -f
+   ```
 
 ---
 
