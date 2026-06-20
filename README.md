@@ -1,4 +1,4 @@
-# 💰 BudgetFlow
+# BudgetFlow
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
@@ -7,162 +7,139 @@
   <img src="https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E" />
 </p>
 
-> A modern, interactive personal finance visualization application that helps you understand where your money goes through beautiful, intuitive charts 📊
-
----
-
-## ✨ What is BudgetFlow?
-
-**BudgetFlow** is a sleek, web-based budget tracking tool designed to give you a crystal-clear picture of your financial flow. Transform your income and expense data into compelling visual representations that make spotting spending patterns a breeze! 🎯
+> A modern, self-hosted personal finance visualization application that helps you understand where your money goes through beautiful, intuitive charts.
 
 ![alt text](image.png)
----
-
-## 🚀 Features
-
-### 📈 Interactive Charts
-| Feature | Description |
-|---------|-------------|
-| 🔀 **Sankey Flow** | Visualize money flow from income → categories → expenses |
-| 🍩 **Donut Chart** | See proportional expense breakdown with category colors |
-| ⚠️ **Smart Alerts** | Red warnings when expenses exceed income |
-
-### 🎛️ Smart Controls
-- 💱 **Multi-Currency** — € $ £ CHF ¥ ₹ ₽ ₩
-- 🔄 **Live Updates** — Edit in sidebar, see changes instantly
-- 📊 **Value/% Toggle** — Switch between numbers and percentages
-- 🌓 **Dark/Light Mode** — Comfortable viewing day or night
-
-### 💾 Data Management
-| Storage | Status |
-|---------|--------|
-| 💻 Local Storage | ✅ Auto-saved |
-| ☁️ Supabase Cloud | ✅ Optional sync |
-| 📤 JSON Export | ✅ Backup & share |
-| 📥 JSON Import | ✅ Restore data |
 
 ---
 
-## 🎯 What It Does
+## Features
 
-BudgetFlow empowers you to:
+### Interactive Charts
+- **Sankey Flow** - Visualize money flow from income → categories → expenses
+- **Donut Chart** - See proportional expense breakdown with category colors
+- **Smart Alerts** - Warnings when expenses exceed income
 
-1. 💵 **Track Income** — Add multiple income sources with custom names
-2. 📁 **Organize Expenses** — Create color-coded categories with items
-3. 🔍 **Visualize Flow** — See exactly where every euro/dollar goes
-4. ⚖️ **Monitor Balance** — Instantly spot deficits or surpluses
-5. 💾 **Export Data** — Backup as JSON anytime
-6. 📂 **Import Data** — Restore or migrate your financial data
+### Smart Controls
+- Multi-Currency support (€ $ £ CHF ¥ ₹ ₽ ₩)
+- Live Updates - Edit in sidebar, see changes instantly
+- Value/% Toggle - Switch between numbers and percentages
+- Dark/Light Mode
 
----
-
-## 📦 Installation
-
-### ⚙️ Prerequisites
-- 🟢 Node.js 18+ 
-- 📦 npm or 🥟 bun
-
-### 🚀 Quick Start
-
-1️⃣ **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/budgetflow.git
-   cd budgetflow
-   ```
-
-2️⃣ **Install dependencies**
-   ```bash
-   npm install
-   # or
-   bun install
-   ```
-
-3️⃣ **Environment Setup** ☁️ (Optional - for Supabase sync)
-   
-   Create a `.env` file in the root directory:
-   ```
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+### Data Management
+- Local SQLite database (self-hosted)
+- Optional authentication for multi-user access
+- JSON Export/Import for backups
 
 ---
 
-## 🏃 Running Locally
+## Self-Hosting
 
-### 💻 Development Server
+### Quick Start with Docker
+
+1. Create a `docker-compose.yml` file:
+```yaml
+services:
+  budgetflow:
+    image: ghcr.io/kinan/budgetflow:latest
+    container_name: budgetflow
+    ports:
+      - "3000:3000"
+    volumes:
+      - budgetflow-data:/app/data
+    environment:
+      - JWT_SECRET=your-secure-random-string
+      - AUTH_ENABLED=true
+    restart: unless-stopped
+
+volumes:
+  budgetflow-data:
+```
+
+2. Start the container:
+```bash
+docker-compose up -d
+```
+
+3. Access the app at `http://localhost:3000`
+
+### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Server port |
+| `HOST` | `0.0.0.0` | Server host |
+| `DATA_DIR` | `./data` | Path to store SQLite database |
+| `JWT_SECRET` | - | **Required.** Secret key for JWT tokens |
+| `JWT_EXPIRES_IN` | `7d` | Token expiration time |
+| `AUTH_ENABLED` | `true` | Enable/disable authentication |
+| `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
+
+### Build from Source
+
+1. Clone the repository:
+```bash
+git clone https://github.com/kinan/budgetflow.git
+cd budgetflow
+```
+
+2. Build the Docker image:
+```bash
+docker build -t budgetflow .
+```
+
+3. Run with environment variables:
+```bash
+docker run -d \
+  --name budgetflow \
+  -p 3000:3000 \
+  -v budgetflow-data:/app/data \
+  -e JWT_SECRET=your-secret-key \
+  -e AUTH_ENABLED=true \
+  budgetflow
+```
+
+---
+
+## Development
+
+### Prerequisites
+- Node.js 18+
+- npm or bun
+
+### Setup
 
 ```bash
+# Install dependencies
+npm install
+
+# Copy environment file
+cp .env.example .env
+# Edit .env and set JWT_SECRET
+
+# Run development server
 npm run dev
-# or
-bun dev
 ```
 
-🌐 The app will be available at `http://localhost:xxxx`
-
-### 🏗️ Build for Production
-
-```bash
-npm run build
-# or
-bun run build
-```
-
-### 👀 Preview Production Build
-
-```bash
-npm run preview
-# or
-bun run preview
-```
-
----
-
-## 🛠️ Tech Stack
+### Tech Stack
 
 | Technology | Purpose |
 |------------|---------|
-| ⚛️ **React** | UI framework |
-| 🔷 **TypeScript** | Type safety |
-| ⚡ **Vite** | Build tool & dev server |
-| 🎨 **Tailwind CSS** | Styling |
-| 🧩 **shadcn/ui** | UI components |
-| 🔥 **Supabase** | Backend & auth (optional) |
-| 🎯 **Lucide React** | Beautiful icons |
+| React | UI framework |
+| TypeScript | Type safety |
+| Vite | Build tool & dev server |
+| Tailwind CSS | Styling |
+| shadcn/ui | UI components |
+| Fastify | Backend API |
+| SQLite | Database |
+| Docker | Self-hosting |
 
 ---
 
-## 💡 Usage Tips
+## License
 
-> 💵 **1. Start with Income** — Add your income sources first
-> 
-> 📁 **2. Create Categories** — Group expenses logically (Housing, Living, Savings, etc.)
-> 
-> 📝 **3. Add Items** — Break down each category into specific expenses
-> 
-> 🔄 **4. Switch Charts** — 🔀 Flow chart for distributions | 🍩 Donut chart for proportions
-> 
-> 💾 **5. Export Regularly** — Use "save as JSON" to backup your data
-> 
-> 🚨 **6. Watch for Red** — Red indicators = spending more than you earn! ⚠️
+MIT License - Feel free to use, modify, and distribute.
 
 ---
 
-## 📜 License
-
-<p align="center">
-  <b>MIT License</b> 📄
-</p>
-
-<p align="center">
-  ✨ Feel free to use, modify, and distribute ✨
-</p>
-
----
-
-<p align="center">
-  🚀 Built with modern web technologies for a smooth budgeting experience 💚
-</p>
-
-<p align="center">
-  Made with ❤️ by Kinan
-</p>
+Built with ❤️ by Kinan
