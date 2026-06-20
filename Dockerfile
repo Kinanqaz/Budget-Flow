@@ -1,45 +1,58 @@
-# Stage 1: Install all dependencies (with build tools for native modules)
-FROM node:20-alpine AS deps
+# Stage 1: Install production dependencies
+FROM node:20-slim AS deps
 WORKDIR /app
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
-# Stage 2: Install dev dependencies for build
-FROM deps AS build-deps
+# Stage 2: Install dev dependencies and build
+FROM node:20-slim AS build
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 RUN npm ci
 
-# Stage 3: Build frontend
-FROM build-deps AS frontend
-WORKDIR /app
+# Copy source code and config files
 COPY vite.config.ts tsconfig*.json postcss.config.js tailwind.config.ts components.json index.html ./
 COPY src/ ./src/
 COPY public/ ./public/
-RUN npm run build
-
-# Stage 4: Build server
-FROM build-deps AS server
-WORKDIR /app
 COPY server/ ./server/
+
+# Build frontend and compile backend server
+RUN npm run build
 RUN npx tsc -p server/tsconfig.json
 
-# Stage 5: Production
-FROM node:20-alpine
+# Stage 3: Production runner
+FROM node:20-slim AS runner
 WORKDIR /app
-RUN apk add --no-cache tini
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy only what's needed - server runtime
-COPY --from=server /app/server/dist/ ./server/dist/
-COPY --from=server /app/server/package.json ./server/
-COPY --from=server /app/package.json ./package.json
-COPY --from=server /app/node_modules/ ./node_modules/
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
+# Copy production dependencies (including compiled better-sqlite3)
+COPY --from=deps /app/node_modules/ ./node_modules/
+
+# Copy compiled backend code and metadata
+COPY --from=build /app/server/dist/ ./server/dist/
+COPY --from=build /app/server/package.json ./server/
+COPY --from=build /app/package.json ./package.json
 
 # Copy frontend build output
-COPY --from=frontend /app/dist/ ./dist/
+COPY --from=build /app/dist/ ./dist/
 
 EXPOSE 3000
 VOLUME ["/app/data"]
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["tini", "--"]
 CMD ["node", "server/dist/index.js"]
