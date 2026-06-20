@@ -128,6 +128,44 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
     ].join(" ");
   };
 
+  // Sort and adjust label positions to prevent vertical overlaps
+  const labels = useMemo(() => {
+    const visibleSegments = segments.filter(seg => seg.percentage >= 1.5);
+    
+    const labelData = visibleSegments.map(seg => {
+      const midAngle = (seg.startAngle + seg.endAngle) / 2;
+      const pos = polarToCartesian(center, center, labelRadius, midAngle);
+      const isRightSide = midAngle > -90 && midAngle < 90;
+      return {
+        seg,
+        midAngle,
+        isRightSide,
+        x: pos.x,
+        y: pos.y
+      };
+    });
+
+    const minSpacing = 24; // Minimum vertical spacing in pixels to prevent overlap
+
+    // Adjust Right Side labels (top to bottom)
+    const rightLabels = labelData.filter(l => l.isRightSide).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < rightLabels.length; i++) {
+      if (rightLabels[i].y < rightLabels[i - 1].y + minSpacing) {
+        rightLabels[i].y = rightLabels[i - 1].y + minSpacing;
+      }
+    }
+
+    // Adjust Left Side labels (top to bottom)
+    const leftLabels = labelData.filter(l => !l.isRightSide).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < leftLabels.length; i++) {
+      if (leftLabels[i].y < leftLabels[i - 1].y + minSpacing) {
+        leftLabels[i].y = leftLabels[i - 1].y + minSpacing;
+      }
+    }
+
+    return [...rightLabels, ...leftLabels];
+  }, [segments, currency]);
+
   return (
     <div className="w-full h-full flex items-center justify-center">
       <svg
@@ -193,50 +231,38 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
         </text>
 
         {/* Labels */}
-        {segments.map((seg) => {
-          const midAngle = (seg.startAngle + seg.endAngle) / 2;
-          const pos = polarToCartesian(center, center, labelRadius, midAngle);
-          const isRightSide = midAngle > -90 && midAngle < 90;
-
-          // Calculate rotation angle for radial text
-          const rotationAngle = midAngle + (isRightSide ? 0 : 180);
-
-          // Skip labels for very small segments (< 1.5%)
-          if (seg.percentage < 1.5) return null;
-
+        {labels.map(({ seg, midAngle, isRightSide, x, y }) => {
           return (
             <g key={`label-${seg.id}`}>
               <line
                 x1={polarToCartesian(center, center, outerRadius + 3, midAngle).x}
                 y1={polarToCartesian(center, center, outerRadius + 3, midAngle).y}
-                x2={pos.x + (isRightSide ? 8 : -8)}
-                y2={pos.y}
+                x2={x + (isRightSide ? 8 : -8)}
+                y2={y}
                 stroke={seg.color}
                 strokeWidth="1"
                 opacity="0.5"
               />
               <text
-                x={pos.x + (isRightSide ? 12 : -12)}
-                y={pos.y - 6}
+                x={x + (isRightSide ? 12 : -12)}
+                y={y - 6}
                 textAnchor={isRightSide ? "start" : "end"}
                 dominantBaseline="middle"
                 className="fill-foreground"
                 fontSize="11"
                 fontWeight="600"
                 fontFamily="'Space Grotesk', sans-serif"
-                transform={`rotate(${rotationAngle} ${pos.x} ${pos.y})`}
               >
                 {seg.name}
               </text>
               <text
-                x={pos.x + (isRightSide ? 12 : -12)}
-                y={pos.y + 8}
+                x={x + (isRightSide ? 12 : -12)}
+                y={y + 8}
                 textAnchor={isRightSide ? "start" : "end"}
                 dominantBaseline="middle"
                 className="fill-muted-foreground"
                 fontSize="10"
                 fontFamily="'Space Grotesk', sans-serif"
-                transform={`rotate(${rotationAngle} ${pos.x} ${pos.y})`}
               >
                 {seg.percentage}% · {seg.total.toLocaleString("en-US")} {currency}
               </text>
