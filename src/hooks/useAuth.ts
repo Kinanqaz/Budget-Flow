@@ -13,7 +13,7 @@ export function useAuth() {
       setAuthEnabled(status.authEnabled);
 
       if (!status.authEnabled) {
-        setUser({ id: "default", username: "admin", email: "admin@local" });
+        setUser({ id: "default", username: "admin" });
         setUsername("admin");
         setLoading(false);
         return;
@@ -40,9 +40,9 @@ export function useAuth() {
     }).catch(() => setLoading(false));
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (username: string, password: string) => {
     try {
-      const { token, user: u } = await api.auth.login(email, password);
+      const { token, user: u } = await api.auth.login(username, password);
       api.setToken(token);
       setUser(u);
       setUsername(u.username);
@@ -52,9 +52,9 @@ export function useAuth() {
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (username: string, password: string) => {
     try {
-      const { token, user: u } = await api.auth.register(name, email, password);
+      const { token, user: u } = await api.auth.register(username, password);
       api.setToken(token);
       setUser(u);
       setUsername(u.username);

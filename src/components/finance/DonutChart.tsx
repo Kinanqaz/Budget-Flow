@@ -90,7 +90,7 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
   }
 
   // Larger viewbox to accommodate labels
-  const size = 600;
+  const size = 700;
   const center = size / 2;
   const outerRadius = 150;
   const innerRadius = 85;
@@ -170,8 +170,8 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
     <div className="w-full h-full flex items-center justify-center">
       <svg
         viewBox={`0 0 ${size} ${size}`}
-        className="w-full h-full max-w-[700px] max-h-[700px]"
-        style={{ minWidth: "350px" }}
+        className="w-full h-full max-w-[750px] max-h-[750px]"
+        style={{ minWidth: "400px" }}
       >
         {/* Background circle */}
         <circle
@@ -257,11 +257,11 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
               </text>
               <text
                 x={x + (isRightSide ? 12 : -12)}
-                y={y + 8}
+                y={y + 10}
                 textAnchor={isRightSide ? "start" : "end"}
                 dominantBaseline="middle"
                 className="fill-muted-foreground"
-                fontSize="10"
+                fontSize="12"
                 fontFamily="'Space Grotesk', sans-serif"
               >
                 {seg.percentage}% · {seg.total.toLocaleString("en-US")} {currency}

@@ -57,15 +57,15 @@ class ApiClient {
   }
 
   auth = {
-    register: (username: string, email: string, password: string) =>
+    register: (username: string, password: string) =>
       this.request<ApiAuthResponse>("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, password }),
       }),
-    login: (email: string, password: string) =>
+    login: (username: string, password: string) =>
       this.request<ApiAuthResponse>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       }),
     me: () =>
       this.request<ApiUser>("/api/auth/me"),

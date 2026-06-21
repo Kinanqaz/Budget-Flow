@@ -46,17 +46,7 @@ describe("Auth Routes", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/register",
-        payload: { email: "", password: "", username: "" },
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it("returns 400 for invalid email", async () => {
-      const app = await buildApp(true);
-      const res = await app.inject({
-        method: "POST",
-        url: "/api/auth/register",
-        payload: { email: "notanemail", password: "Test1234", username: "test" },
+        payload: { username: "", password: "" },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -66,7 +56,7 @@ describe("Auth Routes", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/register",
-        payload: { email: "test@local", password: "12", username: "test" },
+        payload: { username: "test", password: "12" },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -76,7 +66,7 @@ describe("Auth Routes", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/register",
-        payload: { email: "test@local", password: "Test1234", username: "x" },
+        payload: { username: "x", password: "Test1234" },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -98,7 +88,7 @@ describe("Auth Routes", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { email: "nonexistent@local", password: "Test1234" },
+        payload: { username: "nonexistent", password: "Test1234" },
       });
       expect(res.statusCode).toBe(401);
     });

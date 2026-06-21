@@ -6,24 +6,20 @@ import { authMiddleware } from "../middleware/auth";
 
 interface RegisterBody {
   username: string;
-  email: string;
   password: string;
 }
 
 interface LoginBody {
-  email: string;
+  username: string;
   password: string;
 }
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/api/auth/register", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { username, email, password } = request.body as RegisterBody;
+    const { username, password } = request.body as RegisterBody;
 
-    if (!email || !password || !username) {
+    if (!username || !password) {
       return reply.status(400).send({ error: "Missing required fields" });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return reply.status(400).send({ error: "Invalid email format" });
     }
     if (password.length < 8) {
       return reply.status(400).send({ error: "Password must be at least 8 characters" });
@@ -37,34 +33,34 @@ export async function authRoutes(app: FastifyInstance) {
     const db = getDB();
     try {
       const row = db.prepare(
-        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?) RETURNING id"
-      ).get(username, email, passwordHash) as { id: string };
+        "INSERT INTO users (username, password_hash) VALUES (?, ?) RETURNING id"
+      ).get(username, passwordHash) as { id: string };
 
-      const token = app.jwt.sign({ userId: row.id, username, email });
+      const token = app.jwt.sign({ userId: row.id, username });
 
       return reply.send({
         token,
-        user: { id: row.id, username, email },
+        user: { id: row.id, username },
       });
     } catch (err: any) {
       if (err.message?.includes("UNIQUE constraint")) {
-        return reply.status(409).send({ error: "Email or username already taken" });
+        return reply.status(409).send({ error: "Username already taken" });
       }
       throw err;
     }
   });
 
   app.post("/api/auth/login", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { email, password } = request.body as LoginBody;
+    const { username, password } = request.body as LoginBody;
 
-    if (!email || !password) {
-      return reply.status(400).send({ error: "Missing email or password" });
+    if (!username || !password) {
+      return reply.status(400).send({ error: "Missing username or password" });
     }
 
     const db = getDB();
     const row = db.prepare(
-      "SELECT id, username, email, password_hash FROM users WHERE email = ?"
-    ).get(email) as { id: string; username: string; email: string; password_hash: string } | undefined;
+      "SELECT id, username, password_hash FROM users WHERE username = ?"
+    ).get(username) as { id: string; username: string; password_hash: string } | undefined;
 
     if (!row) {
       return reply.status(401).send({ error: "Invalid credentials" });
@@ -75,16 +71,16 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: "Invalid credentials" });
     }
 
-    const token = app.jwt.sign({ userId: row.id, username: row.username, email: row.email });
+    const token = app.jwt.sign({ userId: row.id, username: row.username });
 
     return reply.send({
       token,
-      user: { id: row.id, username: row.username, email: row.email },
+      user: { id: row.id, username: row.username },
     });
   });
 
   app.get("/api/auth/me", { preHandler: [authMiddleware] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(request.user as { id: string; username: string; email: string });
+    return reply.send(request.user as { id: string; username: string });
   });
 
   app.delete("/api/auth/account", { preHandler: [authMiddleware] }, async (request: FastifyRequest, reply: FastifyReply) => {

@@ -44,7 +44,6 @@ describe("useAuth", () => {
     expect(result.current.user).toEqual({
       id: "default",
       username: "admin",
-      email: "admin@local",
     });
     expect(result.current.authEnabled).toBe(false);
   });
@@ -59,7 +58,6 @@ describe("useAuth", () => {
     mockApi.auth.me.mockResolvedValue({
       id: "user1",
       username: "alice",
-      email: "alice@local",
     });
 
     const { result } = renderHook(() => useAuth());
@@ -93,14 +91,14 @@ describe("useAuth", () => {
     });
     mockApi.auth.login.mockResolvedValue({
       token: "new-token",
-      user: { id: "u1", username: "bob", email: "bob@local" },
+      user: { id: "u1", username: "bob" },
     });
 
     const { result } = renderHook(() => useAuth());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
-      const { error } = await result.current.signIn("bob@local", "Test1234");
+      const { error } = await result.current.signIn("bob", "Test1234");
       expect(error).toBeNull();
     });
 
@@ -115,14 +113,14 @@ describe("useAuth", () => {
     });
     mockApi.auth.register.mockResolvedValue({
       token: "reg-token",
-      user: { id: "u2", username: "charlie", email: "charlie@local" },
+      user: { id: "u2", username: "charlie" },
     });
 
     const { result } = renderHook(() => useAuth());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
-      const { error } = await result.current.signUp("charlie@local", "Test1234", "charlie");
+      const { error } = await result.current.signUp("charlie", "Test1234");
       expect(error).toBeNull();
     });
 
@@ -136,7 +134,7 @@ describe("useAuth", () => {
       authEnabled: true,
     });
     mockApi.auth.me.mockResolvedValue({
-      id: "u1", username: "alice", email: "alice@local",
+      id: "u1", username: "alice",
     });
     localStorage.setItem("budgetflow-token", "token");
 
@@ -157,7 +155,7 @@ describe("useAuth", () => {
       authEnabled: true,
     });
     mockApi.auth.me.mockResolvedValue({
-      id: "u1", username: "alice", email: "alice@local",
+      id: "u1", username: "alice",
     });
     localStorage.setItem("budgetflow-token", "token");
 

@@ -19,8 +19,8 @@ interface AuthBarProps {
   username: string;
   loading: boolean;
   authEnabled: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
+  signIn: (username: string, password: string) => Promise<{ error: any }>;
+  signUp: (username: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -28,9 +28,8 @@ interface AuthBarProps {
 const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut, deleteAccount }: AuthBarProps) => {
   const [showForm, setShowForm] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -55,7 +54,7 @@ const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut
     return (
       <div className="flex items-center gap-2">
         <span className="text-sm text-foreground font-medium">
-          {username || user.email}
+          {username}
         </span>
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -113,8 +112,8 @@ const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut
     setSubmitting(true);
     try {
       const { error } = isLogin
-        ? await signIn(email, password)
-        : await signUp(email, password, name);
+        ? await signIn(usernameInput, password)
+        : await signUp(usernameInput, password);
       if (error) {
         const message = error instanceof Error ? error.message : "Authentication error";
         toast.error(message);
@@ -134,23 +133,14 @@ const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut
   return (
     <div className="flex items-center gap-2">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        {!isLogin && (
-          <input
-            type="text"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-24 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        )}
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Username"
+          value={usernameInput}
+          onChange={(e) => setUsernameInput(e.target.value)}
           required
-          className="w-36 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          minLength={2}
+          className="w-28 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <input
           type="password"

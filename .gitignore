@@ -30,3 +30,6 @@ server/dist/
 *.njsproj
 *.sln
 *.sw?
+
+# Claude
+.claude/

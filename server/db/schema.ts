@@ -19,7 +19,6 @@ export function initDB(): ReturnType<typeof BetterSqlite3> {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
@@ -41,8 +40,8 @@ export function initDB(): ReturnType<typeof BetterSqlite3> {
 
   if (!config.AUTH_ENABLED) {
     db.prepare(`
-      INSERT OR IGNORE INTO users (id, username, email, password_hash)
-      VALUES ('default', 'admin', 'admin@local', 'disabled')
+      INSERT OR IGNORE INTO users (id, username, password_hash)
+      VALUES ('default', 'admin', 'disabled')
     `).run();
   }
 

@@ -3,7 +3,6 @@ import type { FinanceData } from "./finance";
 export interface ApiUser {
   id: string;
   username: string;
-  email: string;
 }
 
 export interface ApiAuthResponse {
