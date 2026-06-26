@@ -199,7 +199,7 @@ describe("useFinanceData", () => {
   describe("loadFromServer", () => {
     it("loads data from server and updates state", async () => {
       mockApi.budget.get.mockResolvedValue({
-        finance_data: { income: [{ id: "i1", name: "Salary", value: 7000 }], categories: [] },
+        finance_data: { income: [{ id: "i1", name: "Salary", value: 7000 }], categories: [{ id: "c1", name: "Housing", color: "#f00", items: [] }] },
         dark_mode: true,
         currency: "$",
       });

@@ -2,18 +2,34 @@ import BetterSqlite3 from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { config } from "../config";
+import { MockDatabase } from "./mock-db";
 
-let db: ReturnType<typeof BetterSqlite3> | null = null;
+export interface DatabaseClient {
+  pragma(sql: string): unknown;
+  exec(sql: string): void;
+  prepare(sql: string): {
+    get(...params: (string | number | boolean | null)[]): unknown;
+    run(...params: (string | number | boolean | null)[]): { changes: number };
+  };
+}
 
-export function initDB(): ReturnType<typeof BetterSqlite3> {
+let db: DatabaseClient | null = null;
+
+export function initDB(): DatabaseClient {
   if (db) return db;
 
   const dir = config.DATA_DIR;
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  db = new BetterSqlite3(path.join(dir, "budgetflow.db"));
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  try {
+    const nativeDb = new BetterSqlite3(path.join(dir, "budgetflow.db"));
+    nativeDb.pragma("journal_mode = WAL");
+    nativeDb.pragma("foreign_keys = ON");
+    db = nativeDb as DatabaseClient;
+  } catch (e) {
+    console.warn("Failed to load native better-sqlite3 bindings, falling back to JSON MockDatabase:", e);
+    db = new MockDatabase(path.join(dir, "budgetflow.db")) as DatabaseClient;
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -48,7 +64,7 @@ export function initDB(): ReturnType<typeof BetterSqlite3> {
   return db;
 }
 
-export function getDB(): ReturnType<typeof BetterSqlite3> {
+export function getDB(): DatabaseClient {
   if (!db) throw new Error("Database not initialized. Call initDB() first.");
   return db;
 }

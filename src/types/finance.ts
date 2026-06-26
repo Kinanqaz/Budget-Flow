@@ -8,6 +8,12 @@ export interface ExpenseItem {
   id: string;
   name: string;
   value: number;
+  startDate?: string;
+  endDate?: string;
+  infos?: string;
+  cancellationDate?: string;
+  billingPeriod?: 'Monthly' | 'Annual';
+  noticePeriod?: string;
 }
 
 export interface Category {

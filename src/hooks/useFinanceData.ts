@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { FinanceData, Stats } from "@/types/finance";
+import type { FinanceData, Stats, ExpenseItem } from "@/types/finance";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
@@ -47,7 +47,9 @@ function loadFromStorage(): FinanceData {
       const parsed = JSON.parse(raw);
       if (parsed.income && parsed.categories) return parsed;
     }
-  } catch { }
+  } catch (e) {
+    console.error("Failed to load from storage:", e);
+  }
   return defaultData;
 }
 
@@ -55,11 +57,14 @@ function loadCurrency(): string {
   try {
     const raw = localStorage.getItem(CURRENCY_KEY);
     if (raw && defaultCurrencies.includes(raw)) return raw;
-  } catch { }
+  } catch (e) {
+    console.error("Failed to load currency:", e);
+  }
   return "€";
 }
 
 function hasMeaningfulFinanceData(fd: FinanceData): boolean {
+  if (!fd.categories || fd.categories.length === 0) return false;
   return fd.income?.some((i) => (i.value || 0) > 0) ?? false;
 }
 
@@ -177,13 +182,33 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
   const removeCategory = useCallback((ci: number) => {
     setData((d) => ({ ...d, categories: d.categories.filter((_, i) => i !== ci) }));
   }, []);
-
-  const updateItem = useCallback((ci: number, ii: number, field: "name" | "value", val: string | number) => {
+  const updateItem = useCallback((ci: number, ii: number, field: keyof ExpenseItem, val: string | number | undefined) => {
     setData((d) => {
       const categories = [...d.categories];
       const items = [...categories[ci].items];
-      items[ii] = { ...items[ii], [field]: field === "value" ? +val || 0 : val };
+      items[ii] = { ...items[ii], [field]: field === "value" ? +(val as string | number) || 0 : val } as ExpenseItem;
       categories[ci] = { ...categories[ci], items };
+      return { ...d, categories };
+    });
+  }, []);
+  const moveItemCategory = useCallback((sourceCi: number, ii: number, targetCi: number) => {
+    setData((d) => {
+      const categories = [...d.categories];
+      const item = categories[sourceCi]?.items[ii];
+      if (!item) return d;
+
+      // Remove from source category
+      categories[sourceCi] = {
+        ...categories[sourceCi],
+        items: categories[sourceCi].items.filter((_, idx) => idx !== ii),
+      };
+
+      // Add to target category
+      categories[targetCi] = {
+        ...categories[targetCi],
+        items: [...categories[targetCi].items, item],
+      };
+
       return { ...d, categories };
     });
   }, []);
@@ -223,6 +248,11 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     toast.success("Exported to JSON!");
   }, [data, currency, darkMode]);
 
+  const setCurrencyAndSave = useCallback((c: string) => {
+    setCurrencyState(c);
+    localStorage.setItem(CURRENCY_KEY, c);
+  }, []);
+
   const importFromJson = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -243,12 +273,7 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
       }
     };
     reader.readAsText(file);
-  }, []);
-
-  const setCurrencyAndSave = useCallback((c: string) => {
-    setCurrencyState(c);
-    localStorage.setItem(CURRENCY_KEY, c);
-  }, []);
+  }, [setCurrencyAndSave]);
 
   const save = useCallback(async () => {
     setLoading(true);
@@ -270,10 +295,10 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
   }, [data, darkMode, currency, userId]);
 
   return {
-    data, stats, darkMode, setDarkMode, currency, setCurrency: setCurrencyAndSave, currencies: defaultCurrencies, loading,
+    data, setData, stats, darkMode, setDarkMode, currency, setCurrency: setCurrencyAndSave, currencies: defaultCurrencies, loading,
     updateIncome, addIncome, removeIncome,
     updateCategory, addCategory, removeCategory,
-    updateItem, addItem, removeItem,
+    updateItem, addItem, removeItem, moveItemCategory,
     save, saveToJson, importFromJson, loadFromServer,
   };
 }

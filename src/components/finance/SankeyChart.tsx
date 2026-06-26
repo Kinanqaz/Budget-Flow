@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { FinanceData, Stats } from "@/types/finance";
+import type { FinanceData, Stats, ExpenseItem } from "@/types/finance";
 
 const fmt = (v: number, currency: string) =>
   Math.round(v).toLocaleString("en-US") + " " + currency;
@@ -14,6 +14,75 @@ interface Props {
   currency?: string;
 }
 
+const getCategoryItemColor = (catColor: string, itemIndex: number, totalItems: number): string => {
+  if (totalItems <= 1) return catColor;
+
+  // Simple Hex to RGB
+  let hex = catColor.replace("#", "");
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Convert RGB to HSL
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+      case gNorm: h = (bNorm - rNorm) / d + 2; break;
+      case bNorm: h = (rNorm - gNorm) / d + 4; break;
+    }
+    h /= 6;
+  }
+
+  // Safe margin around base lightness: linear distribution from (l - 0.10) to (l + 0.10)
+  const minL = Math.max(0.12, l - 0.10);
+  const maxL = Math.min(0.88, l + 0.10);
+  
+  const newL = totalItems > 1 
+    ? minL + (itemIndex / (totalItems - 1)) * (maxL - minL)
+    : l;
+
+  // Convert HSL back to RGB
+  let newR, newG, newB;
+  if (s === 0) {
+    newR = newG = newB = newL; // achromatic
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
+    const p = 2 * newL - q;
+    newR = hue2rgb(p, q, h + 1/3);
+    newG = hue2rgb(p, q, h);
+    newB = hue2rgb(p, q, h - 1/3);
+  }
+
+  const toHex = (x: number) => {
+    const str = Math.round(x * 255).toString(16);
+    return str.length === 1 ? "0" + str : str;
+  };
+
+  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+};
+
 export default function SankeyChart({ data, stats, showPercent = false, currency = "€" }: Props) {
   const svgContent = useMemo(() => {
     const tot = stats.income;
@@ -27,7 +96,7 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     const allEntries = [
       ...visCats.map((c) => ({ ...c, visItems: c.items.filter((i) => (i.value || 0) > 0) })),
       ...(remaining > 0
-        ? [{ id: "_ue", name: "Remaining", color: "#4DB6AC", total: remaining, items: [] as any[], visItems: [] as any[] }]
+        ? [{ id: "_ue", name: "Remaining", color: "#4DB6AC", total: remaining, items: [] as ExpenseItem[], visItems: [] as ExpenseItem[] }]
         : []),
     ];
 
@@ -49,7 +118,7 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     const colCat = W * 0.38;
     const colItem = W * 0.72;
 
-    const allItems: { entry: typeof allEntries[0]; item?: any; h: number }[] = [];
+    const allItems: { entry: typeof allEntries[0]; item?: ExpenseItem | null; h: number }[] = [];
     allEntries.forEach((entry) => {
       if (entry.visItems.length > 0) {
         entry.visItems.forEach((item) => {
@@ -67,7 +136,7 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     const catAvailH = Math.max(catAvailH_base, totalItemRows * (MIN_H + ITEM_GAP));
     const MT = 8;
 
-    type CNode = { id: string; name: string; color: string; total: number; y: number; h: number; visItems: any[] };
+    type CNode = { id: string; name: string; color: string; total: number; y: number; h: number; visItems: ExpenseItem[] };
     const catNodes: CNode[] = [];
     let cy = MT;
     const catAreaH = catAvailH - catTotalGaps;
@@ -94,10 +163,18 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     let itemIdx = 0;
     catNodes.forEach((cn, catIdx) => {
       if (cn.visItems.length > 0) {
-        cn.visItems.forEach((item: any) => {
+        cn.visItems.forEach((item: ExpenseItem, itemSubIdx) => {
           const proportion = (item.value || 0) / totalVal;
           const h = Math.max(proportion * itemAreaH, MIN_H);
-          itemNodes.push({ id: item.id, name: item.name, value: item.value, color: cn.color, y: iy, h, catIdx });
+          itemNodes.push({
+            id: item.id,
+            name: item.name,
+            value: item.value,
+            color: getCategoryItemColor(cn.color, itemSubIdx, cn.visItems.length),
+            y: iy,
+            h,
+            catIdx
+          });
           iy += h + ITEM_GAP;
           itemIdx++;
         });
@@ -187,12 +264,12 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
           elements.push(flowPath(
             colCat + NODE_W_CAT, catFlowOff, catFlowOff + flowProp,
             colItem, item.y, item.y + item.h,
-            cn.color, 0.22, `flow-ci-${cn.id}-${idx}`,
+            item.color, 0.22, `flow-ci-${cn.id}-${idx}`,
           ));
           catFlowOff += flowProp;
 
           elements.push(
-            <rect key={`ib-${item.id}`} x={colItem} y={item.y + 1} width={NODE_W_ITEM} height={item.h - 2} fill={cn.color} rx={3} />,
+            <rect key={`ib-${item.id}`} x={colItem} y={item.y + 1} width={NODE_W_ITEM} height={item.h - 2} fill={item.color} rx={3} />,
           );
 
           elements.push(
@@ -220,10 +297,13 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
       </div>
     );
   }
-
   return (
-    <svg viewBox={`0 0 ${svgContent.W} ${svgContent.H}`} className="w-full h-full max-h-full" preserveAspectRatio="xMidYMid meet">
-      {svgContent.elements}
-    </svg>
+    <div className="w-full h-full overflow-x-auto overflow-y-auto scrollbar-thin flex md:items-center md:justify-center items-start justify-start p-2">
+      <div className="w-full h-full min-w-[850px] md:min-w-0 flex-shrink-0">
+        <svg viewBox={`0 0 ${svgContent.W} ${svgContent.H}`} className="w-full h-full max-h-full" preserveAspectRatio="xMidYMid meet">
+          {svgContent.elements}
+        </svg>
+      </div>
+    </div>
   );
 }

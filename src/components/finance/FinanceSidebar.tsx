@@ -1,6 +1,5 @@
-import { Plus, X, Save, TrendingUp, PanelLeftClose, Download, Upload } from "lucide-react";
+import { Plus, X, TrendingUp, PanelLeftClose } from "lucide-react";
 import type { FinanceData } from "@/types/finance";
-import { useRef } from "react";
 
 interface Props {
   data: FinanceData;
@@ -13,19 +12,14 @@ interface Props {
   updateItem: (ci: number, ii: number, f: "name" | "value", v: string | number) => void;
   addItem: (ci: number) => void;
   removeItem: (ci: number, ii: number) => void;
-  save: () => void;
-  saveToJson: () => void;
-  importFromJson: (file: File) => void;
   onClose: () => void;
 }
 
 export default function FinanceSidebar({
   data, updateIncome, addIncome, removeIncome,
   updateCategory, addCategory, removeCategory,
-  updateItem, addItem, removeItem,
-  save, saveToJson, importFromJson, onClose,
+  updateItem, addItem, removeItem, onClose,
 }: Props) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <aside className="w-[300px] min-w-[300px] bg-card flex flex-col h-screen border-r border-border/60">
@@ -126,34 +120,6 @@ export default function FinanceSidebar({
         <button onClick={addCategory} className="w-full mt-5 py-2.5 text-xs text-muted-foreground hover:text-primary border border-dashed border-border hover:border-primary/40 rounded-xl transition-all hover:bg-accent font-medium">
           <Plus size={12} className="inline mr-1" />Add Category
         </button>
-      </div>
-
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-border/60 space-y-2">
-        <button onClick={save} className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-semibold hover:opacity-90 transition-all shadow-sm">
-          <Save size={14} />Save
-        </button>
-        <div className="flex gap-2">
-          <button onClick={saveToJson} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-card text-foreground border border-border rounded-xl text-xs font-medium hover:bg-accent transition-all">
-            <Download size={12} />save as JSON
-          </button>
-          <button onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-card text-foreground border border-border rounded-xl text-xs font-medium hover:bg-accent transition-all">
-            <Upload size={12} />import json
-          </button>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              importFromJson(file);
-              e.target.value = "";
-            }
-          }}
-          className="hidden"
-        />
       </div>
     </aside>
   );

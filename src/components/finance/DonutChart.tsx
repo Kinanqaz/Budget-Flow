@@ -1,13 +1,124 @@
 import { useMemo } from "react";
 import type { FinanceData, Stats } from "@/types/finance";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Props {
   data: FinanceData;
   stats: Stats;
   currency?: string;
+  showPercent?: boolean;
 }
 
-export default function DonutChart({ data, stats, currency = "€" }: Props) {
+// Larger viewbox to accommodate labels
+const size = 700;
+const center = size / 2;
+const outerRadius = 150;
+const innerRadius = 85;
+const labelRadius = 220;
+
+const polarToCartesian = (cx: number, cy: number, r: number, angle: number) => {
+  const rad = (angle * Math.PI) / 180;
+  return {
+    x: cx + r * Math.cos(rad),
+    y: cy + r * Math.sin(rad),
+  };
+};
+
+const createArcPath = (
+  cx: number,
+  cy: number,
+  innerR: number,
+  outerR: number,
+  startAngle: number,
+  endAngle: number
+) => {
+  const start = polarToCartesian(cx, cy, outerR, endAngle);
+  const end = polarToCartesian(cx, cy, outerR, startAngle);
+  const innerStart = polarToCartesian(cx, cy, innerR, endAngle);
+  const innerEnd = polarToCartesian(cx, cy, innerR, startAngle);
+
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+
+  return [
+    `M ${start.x} ${start.y}`,
+    `A ${outerR} ${outerR} 0 ${largeArc} 0 ${end.x} ${end.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A ${innerR} ${innerR} 0 ${largeArc} 1 ${innerStart.x} ${innerStart.y}`,
+    `Z`,
+  ].join(" ");
+};
+
+const getCategoryItemColor = (catColor: string, itemIndex: number, totalItems: number): string => {
+  if (totalItems <= 1) return catColor;
+
+  // Simple Hex to RGB
+  let hex = catColor.replace("#", "");
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Convert RGB to HSL
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+      case gNorm: h = (bNorm - rNorm) / d + 2; break;
+      case bNorm: h = (rNorm - gNorm) / d + 4; break;
+    }
+    h /= 6;
+  }
+
+  // Safe margin around base lightness: linear distribution from (l - 0.10) to (l + 0.10)
+  const minL = Math.max(0.12, l - 0.10);
+  const maxL = Math.min(0.88, l + 0.10);
+  
+  const newL = totalItems > 1 
+    ? minL + (itemIndex / (totalItems - 1)) * (maxL - minL)
+    : l;
+
+  // Convert HSL back to RGB
+  let newR, newG, newB;
+  if (s === 0) {
+    newR = newG = newB = newL; // achromatic
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
+    const p = 2 * newL - q;
+    newR = hue2rgb(p, q, h + 1/3);
+    newG = hue2rgb(p, q, h);
+    newB = hue2rgb(p, q, h - 1/3);
+  }
+
+  const toHex = (x: number) => {
+    const str = Math.round(x * 255).toString(16);
+    return str.length === 1 ? "0" + str : str;
+  };
+
+  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+};
+
+export default function DonutChart({ data, stats, currency = "€", showPercent = false }: Props) {
+  const isMobile = useIsMobile();
   const { segments, total, centerText, centerLabel } = useMemo(() => {
     const fmt = (v: number) => Math.round(v).toLocaleString("en-US") + " " + currency;
 
@@ -16,17 +127,16 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
     let totalExpenses = 0;
 
     stats.cats.forEach((cat) => {
-      cat.items.forEach((item) => {
-        if (item.value > 0) {
-          allItems.push({
-            id: item.id,
-            name: item.name,
-            value: item.value,
-            color: cat.color,
-            catName: cat.name,
-          });
-          totalExpenses += item.value;
-        }
+      const visItems = cat.items.filter((item) => item.value > 0);
+      visItems.forEach((item, itemIdx) => {
+        allItems.push({
+          id: item.id,
+          name: item.name,
+          value: item.value,
+          color: getCategoryItemColor(cat.color, itemIdx, visItems.length),
+          catName: cat.name,
+        });
+        totalExpenses += item.value;
       });
     });
 
@@ -71,62 +181,20 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
       });
     }
 
+    const centerVal = isOverspending ? totalExpenses : stats.income;
+    const centerText = showPercent
+      ? (stats.income > 0 ? Math.round((centerVal / stats.income) * 100) + "%" : "0%")
+      : fmt(centerVal);
+
     return {
       segments,
       total: stats.income,
       totalExpenses,
       isOverspending,
-      centerText: fmt(isOverspending ? totalExpenses : stats.income),
+      centerText,
       centerLabel: isOverspending ? "Total Expenses" : "Total Income",
     };
-  }, [data, stats, currency]);
-
-  if (total <= 0 || segments.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-        No data available
-      </div>
-    );
-  }
-
-  // Larger viewbox to accommodate labels
-  const size = 700;
-  const center = size / 2;
-  const outerRadius = 150;
-  const innerRadius = 85;
-  const labelRadius = 220;
-
-  const polarToCartesian = (cx: number, cy: number, r: number, angle: number) => {
-    const rad = (angle * Math.PI) / 180;
-    return {
-      x: cx + r * Math.cos(rad),
-      y: cy + r * Math.sin(rad),
-    };
-  };
-
-  const createArcPath = (
-    cx: number,
-    cy: number,
-    innerR: number,
-    outerR: number,
-    startAngle: number,
-    endAngle: number
-  ) => {
-    const start = polarToCartesian(cx, cy, outerR, endAngle);
-    const end = polarToCartesian(cx, cy, outerR, startAngle);
-    const innerStart = polarToCartesian(cx, cy, innerR, endAngle);
-    const innerEnd = polarToCartesian(cx, cy, innerR, startAngle);
-
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-
-    return [
-      `M ${start.x} ${start.y}`,
-      `A ${outerR} ${outerR} 0 ${largeArc} 0 ${end.x} ${end.y}`,
-      `L ${innerEnd.x} ${innerEnd.y}`,
-      `A ${innerR} ${innerR} 0 ${largeArc} 1 ${innerStart.x} ${innerStart.y}`,
-      `Z`,
-    ].join(" ");
-  };
+  }, [stats, currency, showPercent]);
 
   // Sort and adjust label positions to prevent vertical overlaps
   const labels = useMemo(() => {
@@ -164,112 +232,143 @@ export default function DonutChart({ data, stats, currency = "€" }: Props) {
     }
 
     return [...rightLabels, ...leftLabels];
-  }, [segments, currency]);
+  }, [segments]);
+
+  if (total <= 0 || segments.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+        No data available
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg
-        viewBox={`0 0 ${size} ${size}`}
-        className="w-full h-full max-w-[750px] max-h-[750px]"
-        style={{ minWidth: "400px" }}
-      >
-        {/* Background circle */}
-        <circle
-          cx={center}
-          cy={center}
-          r={outerRadius}
-          fill="none"
-          stroke="hsl(var(--border))"
-          strokeWidth="1"
-          opacity="0.3"
-        />
-
-        {/* Segments */}
-        {segments.map((seg) => (
-          <g key={seg.id}>
-            <path
-              d={createArcPath(
-                center,
-                center,
-                innerRadius,
-                outerRadius,
-                seg.startAngle,
-                seg.endAngle
-              )}
-              fill={seg.color}
-              stroke="hsl(var(--background))"
-              strokeWidth="2"
-              className="transition-all duration-300 hover:opacity-90 cursor-pointer"
-            />
-          </g>
-        ))}
-
-        {/* Center text */}
-        <text
-          x={center}
-          y={center - 8}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          className="fill-foreground"
-          fontSize="18"
-          fontWeight="700"
-          fontFamily="'Space Grotesk', sans-serif"
+    <div className="w-full h-full flex flex-col md:flex-row items-center justify-center gap-6 overflow-y-auto p-4">
+      <div className="w-full max-w-[320px] md:max-w-[600px] aspect-square flex items-center justify-center shrink-0">
+        <svg
+          viewBox={isMobile ? "180 180 340 340" : `0 0 ${size} ${size}`}
+          className="w-full h-full"
         >
-          {centerText}
-        </text>
-        <text
-          x={center}
-          y={center + 18}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          className="fill-muted-foreground"
-          fontSize="11"
-          fontWeight="500"
-          fontFamily="'Space Grotesk', sans-serif"
-        >
-          {centerLabel}
-        </text>
+          {/* Background circle */}
+          <circle
+            cx={center}
+            cy={center}
+            r={outerRadius}
+            fill="none"
+            stroke="hsl(var(--border))"
+            strokeWidth="1"
+            opacity="0.3"
+          />
 
-        {/* Labels */}
-        {labels.map(({ seg, midAngle, isRightSide, x, y }) => {
-          return (
-            <g key={`label-${seg.id}`}>
-              <line
-                x1={polarToCartesian(center, center, outerRadius + 3, midAngle).x}
-                y1={polarToCartesian(center, center, outerRadius + 3, midAngle).y}
-                x2={x + (isRightSide ? 8 : -8)}
-                y2={y}
-                stroke={seg.color}
-                strokeWidth="1"
-                opacity="0.5"
+          {/* Segments */}
+          {segments.map((seg) => (
+            <g key={seg.id}>
+              <path
+                d={createArcPath(
+                  center,
+                  center,
+                  innerRadius,
+                  outerRadius,
+                  seg.startAngle,
+                  seg.endAngle
+                )}
+                fill={seg.color}
+                stroke="hsl(var(--background))"
+                strokeWidth="2"
+                className="transition-all duration-300 hover:opacity-90 cursor-pointer"
               />
-              <text
-                x={x + (isRightSide ? 12 : -12)}
-                y={y - 6}
-                textAnchor={isRightSide ? "start" : "end"}
-                dominantBaseline="middle"
-                className="fill-foreground"
-                fontSize="11"
-                fontWeight="600"
-                fontFamily="'Space Grotesk', sans-serif"
-              >
-                {seg.name}
-              </text>
-              <text
-                x={x + (isRightSide ? 12 : -12)}
-                y={y + 10}
-                textAnchor={isRightSide ? "start" : "end"}
-                dominantBaseline="middle"
-                className="fill-muted-foreground"
-                fontSize="12"
-                fontFamily="'Space Grotesk', sans-serif"
-              >
-                {seg.percentage}% · {seg.total.toLocaleString("en-US")} {currency}
-              </text>
             </g>
-          );
-        })}
-      </svg>
+          ))}
+
+          {/* Center text */}
+          <text
+            x={center}
+            y={center - 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-foreground"
+            fontSize="18"
+            fontWeight="700"
+            fontFamily="'Space Grotesk', sans-serif"
+          >
+            {centerText}
+          </text>
+          <text
+            x={center}
+            y={center + 18}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-muted-foreground"
+            fontSize="11"
+            fontWeight="500"
+            fontFamily="'Space Grotesk', sans-serif"
+          >
+            {centerLabel}
+          </text>
+
+          {/* Labels - Only visible on desktop */}
+          {!isMobile && labels.map(({ seg, midAngle, isRightSide, x, y }) => {
+            return (
+              <g key={`label-${seg.id}`}>
+                <line
+                  x1={polarToCartesian(center, center, outerRadius + 3, midAngle).x}
+                  y1={polarToCartesian(center, center, outerRadius + 3, midAngle).y}
+                  x2={x + (isRightSide ? 8 : -8)}
+                  y2={y}
+                  stroke={seg.color}
+                  strokeWidth="1"
+                  opacity="0.5"
+                />
+                <text
+                  x={x + (isRightSide ? 12 : -12)}
+                  y={y - 6}
+                  textAnchor={isRightSide ? "start" : "end"}
+                  dominantBaseline="middle"
+                  className="fill-foreground"
+                  fontSize="11"
+                  fontWeight="600"
+                  fontFamily="'Space Grotesk', sans-serif"
+                >
+                  {seg.name}
+                </text>
+                <text
+                  x={x + (isRightSide ? 12 : -12)}
+                  y={y + 10}
+                  textAnchor={isRightSide ? "start" : "end"}
+                  dominantBaseline="middle"
+                  className="fill-muted-foreground"
+                  fontSize="12"
+                  fontFamily="'Space Grotesk', sans-serif"
+                >
+                  {showPercent ? `${seg.percentage}%` : `${seg.total.toLocaleString("en-US")} ${currency}`}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* HTML Legend - visible on mobile screens below the chart */}
+      {isMobile && (
+        <div className="w-full space-y-2 border-t border-border/40 pt-4 px-2 max-h-[220px] overflow-y-auto scrollbar-thin">
+          {segments.map((seg) => (
+            <div key={seg.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border/10 last:border-b-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                <span className="font-semibold text-foreground truncate">{seg.name}</span>
+                {seg.catName && (
+                  <span className="text-[10px] text-muted-foreground truncate">({seg.catName})</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 font-medium text-foreground flex-shrink-0">
+                <span>{seg.percentage}%</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="font-mono">{seg.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

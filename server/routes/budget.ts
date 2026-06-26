@@ -8,7 +8,8 @@ interface SaveBody {
   currency: string;
 }
 
-function hasMeaningfulFinanceData(fd: { income?: { value?: number }[] }): boolean {
+function hasMeaningfulFinanceData(fd: { income?: { value?: number }[]; categories?: unknown[] }): boolean {
+  if (!fd.categories || fd.categories.length === 0) return false;
   return fd.income?.some((i) => (i.value || 0) > 0) ?? false;
 }
 
