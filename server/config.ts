@@ -1,4 +1,16 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+
+// Load local .env file natively if it exists (Node 20.12+)
+try {
+  const envPath = path.join(process.cwd(), ".env");
+  if (fs.existsSync(envPath) && typeof process.loadEnvFile === "function") {
+    process.loadEnvFile(envPath);
+  }
+} catch {
+  // Ignore env loading errors
+}
 
 export const config = {
   PORT: parseInt(process.env.PORT || "3000", 10),

@@ -142,9 +142,16 @@ export class MockDatabase {
 
       run: (...params: (string | number | boolean | null)[]): { changes: number } => {
         if (/INSERT\s+OR\s+IGNORE\s+INTO\s+users/i.test(sanitized)) {
-          const id = params[0] as string;
-          const username = params[1] as string;
-          const passwordHash = params[2] as string;
+          let id = params[0] as string;
+          let username = params[1] as string;
+          let passwordHash = params[2] as string;
+
+          if (params.length === 0) {
+            // Hardcoded fallback values (e.g. from schema.ts setup when auth is disabled)
+            id = "default";
+            username = "admin";
+            passwordHash = "disabled";
+          }
 
           const exists = this.state.users.some(u => u.id === id || u.username === username);
           if (!exists) {
