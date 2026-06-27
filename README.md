@@ -9,7 +9,8 @@
 
 > A modern, self-hosted personal finance visualization application that helps you understand where your money goes through beautiful, intuitive charts.
 
-![alt text](image.png)
+<img width="2551" height="1031" alt="image" src="https://github.com/user-attachments/assets/175e08ed-ffd0-4c29-8d72-443972f71de3" />
+
 
 ---
 
