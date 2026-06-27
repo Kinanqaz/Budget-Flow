@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { FinanceData, Stats, ExpenseItem } from "@/types/finance";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const fmt = (v: number, currency: string) =>
   Math.round(v).toLocaleString("en-US") + " " + currency;
@@ -84,6 +85,7 @@ const getCategoryItemColor = (catColor: string, itemIndex: number, totalItems: n
 };
 
 export default function SankeyChart({ data, stats, showPercent = false, currency = "€" }: Props) {
+  const isMobile = useIsMobile();
   const svgContent = useMemo(() => {
     const tot = stats.income;
     if (tot <= 0) return null;
@@ -96,7 +98,7 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     const allEntries = [
       ...visCats.map((c) => ({ ...c, visItems: c.items.filter((i) => (i.value || 0) > 0) })),
       ...(remaining > 0
-        ? [{ id: "_ue", name: "Remaining", color: "#4DB6AC", total: remaining, items: [] as ExpenseItem[], visItems: [] as ExpenseItem[] }]
+        ? [{ id: "_ue", name: "Remaining", color: data.remainingColor || "#4DB6AC", total: remaining, items: [] as ExpenseItem[], visItems: [] as ExpenseItem[] }]
         : []),
     ];
 
@@ -106,17 +108,17 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     // For overspending, normalize using total expenses instead of income
     const normalizeTotal = isOverspending ? totalVal : tot;
 
+    const W = isMobile ? 550 : 1100;
+    const colIncome = isMobile ? 36 : 160;
+    const colCat = isMobile ? 220 : W * 0.38;
+    const colItem = isMobile ? 400 : W * 0.72;
+
     const NODE_W_INCOME = 3;
-    const NODE_W_CAT = 5;
-    const NODE_W_ITEM = 7;
+    const NODE_W_CAT = isMobile ? 4 : 5;
+    const NODE_W_ITEM = isMobile ? 4 : 7;
     const CAT_GAP = 6;
     const ITEM_GAP = 8;
     const MIN_H = 16;
-
-    const W = 1100;
-    const colIncome = 160;
-    const colCat = W * 0.38;
-    const colItem = W * 0.72;
 
     const allItems: { entry: typeof allEntries[0]; item?: ExpenseItem | null; h: number }[] = [];
     allEntries.forEach((entry) => {
@@ -154,7 +156,19 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     const itemSpan = catSpan * 1.3;
     const incomeCenterY = catTopY + catSpan / 2;
     const itemCenterY = incomeCenterY;
-    const itemStartY = itemCenterY - itemSpan / 2;
+    let itemStartY = itemCenterY - itemSpan / 2;
+
+    let incomeY = incomeCenterY - incomeSpan / 2;
+    const minY = Math.min(incomeY, MT, itemStartY);
+    const yOffset = minY < MT ? MT - minY : 0;
+
+    if (yOffset > 0) {
+      incomeY += yOffset;
+      itemStartY += yOffset;
+      catNodes.forEach((cn) => {
+        cn.y += yOffset;
+      });
+    }
 
     type INode = { id: string; name: string; value: number; color: string; y: number; h: number; catIdx: number };
     const itemNodes: INode[] = [];
@@ -183,10 +197,10 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
       }
     });
 
-    const incomeY = incomeCenterY - incomeSpan / 2;
     const incomeH = incomeSpan;
 
-    const allBottom = Math.max(catBotY, iy - ITEM_GAP, incomeY + incomeH);
+    const shiftedCatBotY = catNodes[catNodes.length - 1].y + catNodes[catNodes.length - 1].h;
+    const allBottom = Math.max(shiftedCatBotY, iy - ITEM_GAP, incomeY + incomeH);
     const H = allBottom + MT;
 
     const elements: JSX.Element[] = [];
@@ -209,26 +223,169 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
       );
     };
 
+    const fsIncome = isMobile ? "12" : "13";
+    const fsCat = isMobile ? "11" : "12";
+    const fsItem = isMobile ? "10.5" : "11.5";
     const display = (val: number) => showPercent ? fmtPct(val, tot) : fmt(val, currency);
 
-    const incomeColor = isOverspending ? "#E53935" : "hsl(220,70%,55%)";
-    elements.push(
-      <rect key="income-bar" x={colIncome} y={incomeY} width={NODE_W_INCOME} height={incomeH} fill={incomeColor} rx={3} />,
-    );
+    // Calculate segment data and resolved vertical label positions for each income
+    const incomeLabels = data.income.map((inc, idx) => {
+      const segmentH = (inc.value / normalizeTotal) * incomeH;
+      const prevHSum = data.income.slice(0, idx).reduce((s, item) => s + (item.value / normalizeTotal) * incomeH, 0);
+      const y = incomeY + prevHSum + segmentH / 2;
+      return {
+        id: inc.id || `inc-${idx}`,
+        name: inc.name,
+        value: inc.value,
+        y,
+        h: segmentH,
+        yStart: incomeY + prevHSum,
+        pct: tot > 0 ? Math.round((inc.value / tot) * 100) : 0,
+      };
+    });
 
-    const incomeName = data.income.length === 1 ? data.income[0].name : "Income";
-    elements.push(
-      <text key="il" x={colIncome - 12} y={incomeY + incomeH / 2} textAnchor="end" dominantBaseline="middle" fontSize="13" fontWeight="600" className={isOverspending ? "fill-destructive" : "fill-foreground"} fontFamily="'Space Grotesk',sans-serif">
-        {incomeName}: {display(tot)} {isOverspending && "⚠️"}
-      </text>,
-    );
+    // Resolve vertical overlaps for income labels if there are multiple
+    if (incomeLabels.length > 1) {
+      const minIncSpacing = isMobile ? 22 : 24;
+      for (let i = 1; i < incomeLabels.length; i++) {
+        if (incomeLabels[i].y < incomeLabels[i - 1].y + minIncSpacing) {
+          incomeLabels[i].y = incomeLabels[i - 1].y + minIncSpacing;
+        }
+      }
+    }
 
-    // Add deficit indicator if overspending
-    if (isOverspending) {
+    const getIncomeSegmentColor = (idx: number, isDeficit: boolean) => {
+      if (isDeficit) {
+        return getCategoryItemColor("#E53935", idx, data.income.length);
+      } else {
+        const baseColor = data.incomeColor || "#2196F3";
+        return getCategoryItemColor(baseColor, idx, data.income.length);
+      }
+    };
+
+    // Draw segmented income bar
+    incomeLabels.forEach((il, idx) => {
+      const segmentColor = getIncomeSegmentColor(idx, false);
+      const x = colIncome;
+      const y = il.yStart;
+      const W = NODE_W_INCOME;
+      const H = il.h;
+      const R = isMobile ? 1 : 1.5;
+
+      let pathD = "";
+      if (isOverspending) {
+        if (idx === 0) {
+          // Rounded top-left, straight bottom-left
+          pathD = `M ${x + R} ${y} L ${x + W} ${y} L ${x + W} ${y + H} L ${x} ${y + H} L ${x} ${y + R} A ${R} ${R} 0 0 1 ${x + R} ${y} Z`;
+        } else {
+          // Completely straight
+          pathD = `M ${x} ${y} L ${x + W} ${y} L ${x + W} ${y + H} L ${x} ${y + H} Z`;
+        }
+      } else {
+        if (incomeLabels.length === 1) {
+          // Fully rounded left
+          pathD = `M ${x + R} ${y} L ${x + W} ${y} L ${x + W} ${y + H} L ${x + R} ${y + H} A ${R} ${R} 0 0 1 ${x} ${y + H - R} L ${x} ${y + R} A ${R} ${R} 0 0 1 ${x + R} ${y} Z`;
+        } else if (idx === 0) {
+          // Rounded top-left, straight bottom-left
+          pathD = `M ${x + R} ${y} L ${x + W} ${y} L ${x + W} ${y + H} L ${x} ${y + H} L ${x} ${y + R} A ${R} ${R} 0 0 1 ${x + R} ${y} Z`;
+        } else if (idx === incomeLabels.length - 1) {
+          // Rounded bottom-left, straight top-left
+          pathD = `M ${x} ${y} L ${x + W} ${y} L ${x + W} ${y + H} L ${x + R} ${y + H} A ${R} ${R} 0 0 1 ${x} ${y + H - R} L ${x} ${y} Z`;
+        } else {
+          // Completely straight
+          pathD = `M ${x} ${y} L ${x + W} ${y} L ${x + W} ${y + H} L ${x} ${y + H} Z`;
+        }
+      }
+
       elements.push(
-        <text key="deficit-warning" x={colIncome - 12} y={incomeY + incomeH / 2 + 18} textAnchor="end" dominantBaseline="middle" fontSize="10" className="fill-destructive" fontFamily="'Space Grotesk',sans-serif">
+        <path
+          key={`income-segment-${il.id}`}
+          d={pathD}
+          fill={segmentColor}
+          opacity={0.8}
+        />
+      );
+    });
+
+    // Draw deficit node if overspending
+    if (isOverspending) {
+      const deficitBarH = (deficit / normalizeTotal) * incomeH;
+      const deficitYStart = incomeY + (tot / normalizeTotal) * incomeH;
+      const x = colIncome;
+      const W = NODE_W_INCOME;
+      const H = deficitBarH;
+      const R = isMobile ? 1 : 1.5;
+
+      // Rounded bottom-left, straight top-left
+      const pathD = `M ${x} ${deficitYStart} L ${x + W} ${deficitYStart} L ${x + W} ${deficitYStart + H} L ${x + R} ${deficitYStart + H} A ${R} ${R} 0 0 1 ${x} ${deficitYStart + H - R} L ${x} ${deficitYStart} Z`;
+
+      elements.push(
+        <path
+          key="deficit-node"
+          d={pathD}
+          fill="#E53935"
+          opacity={0.8}
+        />
+      );
+    }
+
+    // Render individual income labels
+    incomeLabels.forEach((il, idx) => {
+      const labelText = showPercent
+        ? `${il.name}: ${il.pct}%`
+        : `${il.name}: ${display(il.value)}`;
+
+      // If mobile and multiple incomes, space them horizontally (on x) and center them on y
+      const labelX = isMobile
+        ? colIncome - 12 - idx * 12
+        : colIncome - 12;
+      const labelY = isMobile
+        ? incomeY + incomeH / 2
+        : il.y;
+
+      elements.push(
+        <text
+          key={`il-${il.id}`}
+          x={labelX}
+          y={labelY}
+          textAnchor={isMobile ? "middle" : "end"}
+          dominantBaseline="middle"
+          fontSize={fsIncome}
+          fontWeight="600"
+          className="fill-foreground"
+          fontFamily="'Space Grotesk',sans-serif"
+          transform={isMobile ? `rotate(-90, ${labelX}, ${labelY})` : undefined}
+        >
+          {labelText}
+        </text>
+      );
+    });
+
+    // Add deficit indicator next to deficit node if overspending
+    if (isOverspending) {
+      const deficitBarH = (deficit / normalizeTotal) * incomeH;
+      const deficitYStart = incomeY + (tot / normalizeTotal) * incomeH;
+      const labelY = isMobile
+        ? incomeY + incomeH / 2
+        : deficitYStart + deficitBarH / 2;
+      const labelX = isMobile
+        ? colIncome - 12 - incomeLabels.length * 12
+        : colIncome - 12;
+
+      elements.push(
+        <text
+          key="deficit-warning"
+          x={labelX}
+          y={labelY}
+          textAnchor={isMobile ? "middle" : "end"}
+          dominantBaseline="middle"
+          fontSize={isMobile ? "9.5" : "10"}
+          className="fill-destructive font-bold"
+          fontFamily="'Space Grotesk',sans-serif"
+          transform={isMobile ? `rotate(-90, ${labelX}, ${labelY})` : undefined}
+        >
           Deficit: {display(deficit)}
-        </text>,
+        </text>
       );
     }
 
@@ -245,14 +402,23 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
 
     catNodes.forEach((cn, catIdx) => {
       elements.push(
-        <rect key={`cb-${cn.id}`} x={colCat} y={cn.y} width={NODE_W_CAT} height={cn.h} fill={cn.color} rx={3} />,
+        <rect key={`cb-${cn.id}`} x={colCat} y={cn.y} width={NODE_W_CAT} height={cn.h} fill={cn.color} opacity={0.8} />,
       );
 
       const catItems = itemNodes.filter((n) => n.catIdx === catIdx);
 
       if (catItems.length > 0) {
         elements.push(
-          <text key={`cl-${cn.id}`} x={colCat + NODE_W_CAT + 12} y={cn.y + cn.h / 2} dominantBaseline="middle" fontSize="12" fontWeight="600" className="fill-foreground" fontFamily="'Space Grotesk',sans-serif">
+          <text
+            key={`cl-${cn.id}`}
+            x={colCat + NODE_W_CAT + (isMobile ? 8 : 12)}
+            y={cn.y + cn.h / 2}
+            dominantBaseline="middle"
+            fontSize={fsCat}
+            fontWeight="600"
+            className="fill-foreground"
+            fontFamily="'Space Grotesk',sans-serif"
+          >
             {cn.name}: {display(cn.total)}
           </text>,
         );
@@ -268,27 +434,57 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
           ));
           catFlowOff += flowProp;
 
+          const x = colItem;
+          const y = item.y;
+          const W = NODE_W_ITEM;
+          const H = item.h;
+          const R = 3;
+
           elements.push(
-            <rect key={`ib-${item.id}`} x={colItem} y={item.y + 1} width={NODE_W_ITEM} height={item.h - 2} fill={item.color} rx={3} />,
+            <path
+              key={`ib-${item.id}`}
+              d={`M ${x} ${y} L ${x + W - R} ${y} A ${R} ${R} 0 0 1 ${x + W} ${y + R} L ${x + W} ${y + H - R} A ${R} ${R} 0 0 1 ${x + W - R} ${y + H} L ${x} ${y + H} Z`}
+              fill={item.color}
+              opacity={0.8}
+            />
           );
 
           elements.push(
-            <text key={`itl-${item.id}`} x={colItem + NODE_W_ITEM + 16} y={item.y + item.h / 2} dominantBaseline="middle" fontSize="11.5" className="fill-foreground">
+            <text
+              key={`itl-${item.id}`}
+              x={colItem + NODE_W_ITEM + (isMobile ? 10 : 16)}
+              y={item.y + item.h / 2}
+              dominantBaseline="middle"
+              fontSize={fsItem}
+              className="fill-foreground"
+              fontFamily="'Space Grotesk',sans-serif"
+            >
               {item.name}: <tspan fontWeight="600">{display(item.value)}</tspan>
             </text>,
           );
         });
       } else {
         elements.push(
-          <text key={`cl-${cn.id}`} x={colCat + NODE_W_CAT + 12} y={cn.y + cn.h / 2} dominantBaseline="middle" fontSize="12" fontWeight="600" className="fill-foreground">
+          <text
+            key={`cl-${cn.id}`}
+            x={colCat + NODE_W_CAT + (isMobile ? 8 : 12)}
+            y={cn.y + cn.h / 2}
+            dominantBaseline="middle"
+            fontSize={fsCat}
+            fontWeight="600"
+            className="fill-foreground"
+            fontFamily="'Space Grotesk',sans-serif"
+          >
             {cn.name}: {display(cn.total)}
           </text>,
         );
       }
     });
 
-    return { W, H, elements };
-  }, [data, stats, showPercent, currency]);
+    const startX = isMobile ? -25 : 0;
+    const viewW = isMobile ? W + 25 : W;
+    return { W: viewW, H, startX, elements };
+  }, [data, stats, showPercent, currency, isMobile]);
 
   if (!svgContent) {
     return (
@@ -298,9 +494,9 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     );
   }
   return (
-    <div className="w-full h-full overflow-x-auto overflow-y-auto scrollbar-thin flex md:items-center md:justify-center items-start justify-start p-2">
-      <div className="w-full h-full min-w-[850px] md:min-w-0 flex-shrink-0">
-        <svg viewBox={`0 0 ${svgContent.W} ${svgContent.H}`} className="w-full h-full max-h-full" preserveAspectRatio="xMidYMid meet">
+    <div className="w-full h-full flex items-center justify-center p-2">
+      <div className="w-full h-full max-w-[650px] md:max-w-none flex-shrink-0">
+        <svg viewBox={`${svgContent.startX} 0 ${svgContent.W} ${svgContent.H}`} className="w-full h-full max-h-full" preserveAspectRatio="xMidYMid meet">
           {svgContent.elements}
         </svg>
       </div>

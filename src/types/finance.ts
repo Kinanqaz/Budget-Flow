@@ -26,6 +26,8 @@ export interface Category {
 export interface FinanceData {
   income: IncomeItem[];
   categories: Category[];
+  remainingColor?: string;
+  incomeColor?: string;
 }
 
 export interface Stats {

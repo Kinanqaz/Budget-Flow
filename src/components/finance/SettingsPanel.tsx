@@ -11,6 +11,10 @@ interface Props {
   currency: string;
   setCurrency: (c: string) => void;
   currencies: string[];
+  remainingColor?: string;
+  updateRemainingColor: (color: string) => void;
+  importFromCsv: (text: string) => void;
+  exportToCsv: () => void;
   save: () => Promise<void> | void;
   saveToJson: () => void;
   importFromJson: (file: File) => void;
@@ -25,6 +29,10 @@ export default function SettingsPanel({
   currency,
   setCurrency,
   currencies,
+  remainingColor,
+  updateRemainingColor,
+  importFromCsv,
+  exportToCsv,
   save,
   saveToJson,
   importFromJson,
@@ -33,6 +41,7 @@ export default function SettingsPanel({
   authEnabled,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const handleToggleTheme = (mode: "light" | "dark") => {
     const isDark = mode === "dark";
@@ -109,7 +118,7 @@ export default function SettingsPanel({
               >
                 {currencies.map((c) => (
                   <option key={c} value={c}>
-                    {c} (Active Currency)
+                    {c === currency ? `${c} (Active)` : c}
                   </option>
                 ))}
               </select>
@@ -117,6 +126,30 @@ export default function SettingsPanel({
                 <Globe size={14} />
               </div>
             </div>
+          </div>
+
+          {/* Remaining Color Selector */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+              Remaining Money Color
+            </label>
+            <label className="flex items-center gap-3 bg-background border border-border/80 rounded-xl p-2.5 px-3.5 cursor-pointer hover:bg-accent/40 transition-colors">
+              <input
+                type="color"
+                value={remainingColor || "#4DB6AC"}
+                onChange={(e) => {
+                  updateRemainingColor(e.target.value);
+                  toast.success(`Remaining value color updated!`);
+                }}
+                className="sr-only"
+              />
+              <div 
+                className="w-7 h-7 rounded-full border border-border/80 shadow-sm flex-shrink-0"
+                style={{ backgroundColor: remainingColor || "#4DB6AC" }}
+                title="Set remaining color"
+              />
+              <span className="text-xs text-muted-foreground font-medium select-none">Click circle to choose color</span>
+            </label>
           </div>
         </div>
 
@@ -170,6 +203,47 @@ export default function SettingsPanel({
               type="file"
               accept=".json"
               onChange={handleFileImport}
+              className="hidden"
+            />
+          </div>
+
+          {/* Backup Restores (CSV) */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+              CSV File Backup
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={exportToCsv}
+                className="flex items-center justify-center gap-2 py-2.5 px-3 bg-background text-foreground border border-border rounded-xl text-xs font-semibold hover:bg-accent transition-all"
+              >
+                <Download size={14} /> Export CSV
+              </button>
+              <button
+                onClick={() => csvInputRef.current?.click()}
+                className="flex items-center justify-center gap-2 py-2.5 px-3 bg-background text-foreground border border-border rounded-xl text-xs font-semibold hover:bg-accent transition-all"
+              >
+                <Upload size={14} /> Import CSV
+              </button>
+            </div>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const text = event.target?.result as string;
+                    if (text) {
+                      importFromCsv(text);
+                    }
+                    e.target.value = "";
+                  };
+                  reader.readAsText(file);
+                }
+              }}
               className="hidden"
             />
           </div>

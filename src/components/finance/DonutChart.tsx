@@ -10,11 +10,11 @@ interface Props {
 }
 
 // Larger viewbox to accommodate labels
-const size = 700;
+const size = 800;
 const center = size / 2;
-const outerRadius = 150;
-const innerRadius = 85;
-const labelRadius = 220;
+const outerRadius = 230;
+const innerRadius = 140;
+const labelRadius = 290;
 
 const polarToCartesian = (cx: number, cy: number, r: number, angle: number) => {
   const rad = (angle * Math.PI) / 180;
@@ -119,7 +119,7 @@ const getCategoryItemColor = (catColor: string, itemIndex: number, totalItems: n
 
 export default function DonutChart({ data, stats, currency = "€", showPercent = false }: Props) {
   const isMobile = useIsMobile();
-  const { segments, total, centerText, centerLabel } = useMemo(() => {
+  const { segments, total, centerText, centerLabel, isOverspending } = useMemo(() => {
     const fmt = (v: number) => Math.round(v).toLocaleString("en-US") + " " + currency;
 
     // Flatten all items from all categories
@@ -165,26 +165,30 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
       };
     });
 
-    // Add remaining or deficit segment
-    if (Math.abs(remaining) > 0.01) {
-      const absRemaining = Math.abs(remaining);
-      const angle = (absRemaining / totalForChart) * 360;
+    // Add remaining segment if surplus (remaining > 0)
+    if (remaining > 0.01) {
+      const angle = (remaining / totalForChart) * 360;
       segments.push({
-        id: isOverspending ? "_deficit" : "_remaining",
-        name: isOverspending ? "Deficit" : "Remaining",
+        id: "_remaining",
+        name: "Remaining",
         catName: "",
-        color: isOverspending ? "#E53935" : "#4DB6AC",
-        total: absRemaining,
+        color: data.remainingColor || "#4DB6AC",
+        total: remaining,
         startAngle: currentAngle,
         endAngle: currentAngle + angle,
-        percentage: Math.round((absRemaining / totalForChart) * 100),
+        percentage: Math.round((remaining / totalForChart) * 100),
       });
     }
 
-    const centerVal = isOverspending ? totalExpenses : stats.income;
-    const centerText = showPercent
-      ? (stats.income > 0 ? Math.round((centerVal / stats.income) * 100) + "%" : "0%")
-      : fmt(centerVal);
+    const centerText = isOverspending
+      ? (showPercent
+          ? (stats.income > 0 ? `-${Math.round((Math.abs(remaining) / stats.income) * 100)}%` : "0%")
+          : `-${fmt(Math.abs(remaining))}`)
+      : (showPercent
+          ? (stats.income > 0 ? "100%" : "0%")
+          : fmt(stats.income));
+
+    const centerLabel = isOverspending ? "Deficit" : "Total Income";
 
     return {
       segments,
@@ -192,13 +196,13 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
       totalExpenses,
       isOverspending,
       centerText,
-      centerLabel: isOverspending ? "Total Expenses" : "Total Income",
+      centerLabel,
     };
   }, [stats, currency, showPercent]);
 
   // Sort and adjust label positions to prevent vertical overlaps
   const labels = useMemo(() => {
-    const visibleSegments = segments.filter(seg => seg.percentage >= 1.5);
+    const visibleSegments = segments.filter(seg => seg.total > 0);
     
     const labelData = visibleSegments.map(seg => {
       const midAngle = (seg.startAngle + seg.endAngle) / 2;
@@ -213,7 +217,7 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
       };
     });
 
-    const minSpacing = 24; // Minimum vertical spacing in pixels to prevent overlap
+    const minSpacing = 40; // Minimum vertical spacing in pixels to prevent overlap (increased for larger fonts)
 
     // Adjust Right Side labels (top to bottom)
     const rightLabels = labelData.filter(l => l.isRightSide).sort((a, b) => a.y - b.y);
@@ -244,9 +248,9 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
 
   return (
     <div className="w-full h-full flex flex-col md:flex-row items-center justify-center gap-6 overflow-y-auto p-4">
-      <div className="w-full max-w-[320px] md:max-w-[600px] aspect-square flex items-center justify-center shrink-0">
+      <div className="w-full max-w-[320px] md:max-w-[750px] aspect-square flex items-center justify-center shrink-0">
         <svg
-          viewBox={isMobile ? "180 180 340 340" : `0 0 ${size} ${size}`}
+          viewBox={isMobile ? "160 160 480 480" : `0 0 ${size} ${size}`}
           className="w-full h-full"
         >
           {/* Background circle */}
@@ -276,6 +280,7 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
                 stroke="hsl(var(--background))"
                 strokeWidth="2"
                 className="transition-all duration-300 hover:opacity-90 cursor-pointer"
+                opacity={0.8}
               />
             </g>
           ))}
@@ -283,11 +288,11 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
           {/* Center text */}
           <text
             x={center}
-            y={center - 8}
+            y={center - 12}
             textAnchor="middle"
             dominantBaseline="middle"
-            className="fill-foreground"
-            fontSize="18"
+            className={isOverspending ? "fill-destructive font-bold" : "fill-foreground"}
+            fontSize="32"
             fontWeight="700"
             fontFamily="'Space Grotesk', sans-serif"
           >
@@ -295,11 +300,11 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
           </text>
           <text
             x={center}
-            y={center + 18}
+            y={center + 22}
             textAnchor="middle"
             dominantBaseline="middle"
-            className="fill-muted-foreground"
-            fontSize="11"
+            className={isOverspending ? "fill-destructive/80 font-bold" : "fill-muted-foreground"}
+            fontSize="15"
             fontWeight="500"
             fontFamily="'Space Grotesk', sans-serif"
           >
@@ -308,24 +313,25 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
 
           {/* Labels - Only visible on desktop */}
           {!isMobile && labels.map(({ seg, midAngle, isRightSide, x, y }) => {
+            const clampedY = Math.max(40, Math.min(size - 40, y));
             return (
               <g key={`label-${seg.id}`}>
                 <line
                   x1={polarToCartesian(center, center, outerRadius + 3, midAngle).x}
                   y1={polarToCartesian(center, center, outerRadius + 3, midAngle).y}
                   x2={x + (isRightSide ? 8 : -8)}
-                  y2={y}
+                  y2={clampedY}
                   stroke={seg.color}
-                  strokeWidth="1"
-                  opacity="0.5"
+                  strokeWidth="1.5"
+                  opacity="0.6"
                 />
                 <text
                   x={x + (isRightSide ? 12 : -12)}
-                  y={y - 6}
+                  y={clampedY - 8}
                   textAnchor={isRightSide ? "start" : "end"}
                   dominantBaseline="middle"
                   className="fill-foreground"
-                  fontSize="11"
+                  fontSize="16"
                   fontWeight="600"
                   fontFamily="'Space Grotesk', sans-serif"
                 >
@@ -333,11 +339,11 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
                 </text>
                 <text
                   x={x + (isRightSide ? 12 : -12)}
-                  y={y + 10}
+                  y={clampedY + 12}
                   textAnchor={isRightSide ? "start" : "end"}
                   dominantBaseline="middle"
                   className="fill-muted-foreground"
-                  fontSize="12"
+                  fontSize="14"
                   fontFamily="'Space Grotesk', sans-serif"
                 >
                   {showPercent ? `${seg.percentage}%` : `${seg.total.toLocaleString("en-US")} ${currency}`}
@@ -354,7 +360,7 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
           {segments.map((seg) => (
             <div key={seg.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border/10 last:border-b-0">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color, opacity: 0.8 }} />
                 <span className="font-semibold text-foreground truncate">{seg.name}</span>
                 {seg.catName && (
                   <span className="text-[10px] text-muted-foreground truncate">({seg.catName})</span>

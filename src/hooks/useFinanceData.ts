@@ -68,6 +68,50 @@ function hasMeaningfulFinanceData(fd: FinanceData): boolean {
   return fd.income?.some((i) => (i.value || 0) > 0) ?? false;
 }
 
+const parseCSVLine = (line: string): string[] => {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+};
+
+const convertDateToISO = (dateStr: string): string | undefined => {
+  if (!dateStr) return undefined;
+  const delimiter = dateStr.includes('/') ? '/' : (dateStr.includes('.') ? '.' : '-');
+  const parts = dateStr.split(delimiter);
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    let year = parts[2];
+    if (year.length === 2) {
+      year = "20" + year;
+    }
+    return `${year}-${month}-${day}`;
+  }
+  return undefined;
+};
+
+const formatDateForDisplay = (isoStr?: string): string => {
+  if (!isoStr) return "";
+  const parts = isoStr.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  }
+  return isoStr;
+};
+
 export function useFinanceData(userId: string | undefined, authenticated: boolean) {
   const [data, setData] = useState<FinanceData>(loadFromStorage);
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
@@ -229,6 +273,38 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     });
   }, []);
 
+  const moveIncome = useCallback((fromIndex: number, toIndex: number) => {
+    setData((d) => {
+      const income = [...d.income];
+      if (toIndex < 0 || toIndex >= income.length) return d;
+      const [moved] = income.splice(fromIndex, 1);
+      income.splice(toIndex, 0, moved);
+      return { ...d, income };
+    });
+  }, []);
+
+  const moveCategory = useCallback((fromIndex: number, toIndex: number) => {
+    setData((d) => {
+      const categories = [...d.categories];
+      if (toIndex < 0 || toIndex >= categories.length) return d;
+      const [moved] = categories.splice(fromIndex, 1);
+      categories.splice(toIndex, 0, moved);
+      return { ...d, categories };
+    });
+  }, []);
+
+  const moveItem = useCallback((ci: number, fromIndex: number, toIndex: number) => {
+    setData((d) => {
+      const categories = [...d.categories];
+      const items = [...categories[ci].items];
+      if (toIndex < 0 || toIndex >= items.length) return d;
+      const [moved] = items.splice(fromIndex, 1);
+      items.splice(toIndex, 0, moved);
+      categories[ci] = { ...categories[ci], items };
+      return { ...d, categories };
+    });
+  }, []);
+
   const saveToJson = useCallback(() => {
     const exportData = {
       finance_data: data,
@@ -253,6 +329,14 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     localStorage.setItem(CURRENCY_KEY, c);
   }, []);
 
+  const updateRemainingColor = useCallback((color: string) => {
+    setData((d) => ({ ...d, remainingColor: color }));
+  }, []);
+
+  const updateIncomeColor = useCallback((color: string) => {
+    setData((d) => ({ ...d, incomeColor: color }));
+  }, []);
+
   const importFromJson = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -275,6 +359,122 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     reader.readAsText(file);
   }, [setCurrencyAndSave]);
 
+  const exportToCsv = useCallback(() => {
+    const headers = ["Name", "Amount", "Category", "Date Range", "Infos", "Cancellation Date", "Billing Period"];
+    const rows = [headers];
+
+    data.categories.forEach((cat) => {
+      cat.items.forEach((item) => {
+        const dateRange = item.startDate
+          ? `${formatDateForDisplay(item.startDate)}${item.endDate ? ` -> ${formatDateForDisplay(item.endDate)}` : ""}`
+          : "";
+        const row = [
+          item.name,
+          (item.value || 0).toString(),
+          cat.name,
+          dateRange,
+          item.infos || "",
+          item.cancellationDate ? formatDateForDisplay(item.cancellationDate) : "",
+          item.billingPeriod || "Monthly",
+        ];
+        const escapedRow = row.map((val) => `"${val.replace(/"/g, '""')}"`);
+        rows.push(escapedRow);
+      });
+    });
+
+    const csvContent = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `budgetflow-expenses-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Exported to CSV!");
+  }, [data]);
+
+  const importFromCsv = useCallback((text: string) => {
+    const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
+    if (lines.length <= 1) {
+      toast.error("CSV is empty or invalid");
+      return;
+    }
+
+    const importedItems: ExpenseItem[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseCSVLine(lines[i]);
+      if (row.length === 0 || !row[0]) continue;
+
+      const name = row[0].replace(/^"|"$/g, "").trim();
+      const lowerName = name.toLowerCase();
+      
+      if (lowerName === "income" || lowerName === "salary" || lowerName.includes("salary") || lowerName.includes("income")) {
+        continue;
+      }
+      
+      const rawAmount = row[1] || "0";
+      const amount = parseFloat(rawAmount.replace(/[^\d.-]/g, "")) || 0;
+
+      const dateRange = row[3] || "";
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+
+      if (dateRange.includes("→") || dateRange.includes("->")) {
+        const sep = dateRange.includes("→") ? "→" : "->";
+        const parts = dateRange.split(sep).map((s) => s.trim());
+        if (parts[0]) startDate = convertDateToISO(parts[0]);
+        if (parts[1]) endDate = convertDateToISO(parts[1]);
+      } else if (dateRange.trim()) {
+        startDate = convertDateToISO(dateRange);
+      }
+
+      const infos = (row[4] || "").replace(/^"|"$/g, "").trim();
+      const cancellationDate = convertDateToISO(row[5] || "");
+      const type = (row[6] || "Monthly").trim();
+      const billingPeriod =
+        type.toLowerCase() === "annual" || type.toLowerCase() === "annually"
+          ? "Annual"
+          : "Monthly";
+
+      importedItems.push({
+        id: "_" + Math.random().toString(36).slice(2, 9),
+        name,
+        value: amount,
+        startDate,
+        endDate,
+        infos,
+        cancellationDate,
+        billingPeriod,
+      });
+    }
+
+    if (importedItems.length === 0) {
+      toast.error("No valid items found in CSV file");
+      return;
+    }
+
+    setData((prev) => {
+      const categories = [...prev.categories];
+      let csvCat = categories.find((c) => c.name === "CSV Import");
+      if (!csvCat) {
+        csvCat = {
+          id: "_" + Math.random().toString(36).slice(2, 9),
+          name: "CSV Import",
+          color: "#CE93D8",
+          items: [],
+        };
+        categories.push(csvCat);
+      }
+      csvCat.items = [...csvCat.items, ...importedItems];
+      return { ...prev, categories };
+    });
+
+    toast.success(`Successfully imported ${importedItems.length} expenses!`);
+  }, []);
+
   const save = useCallback(async () => {
     setLoading(true);
     try {
@@ -296,9 +496,13 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
 
   return {
     data, setData, stats, darkMode, setDarkMode, currency, setCurrency: setCurrencyAndSave, currencies: defaultCurrencies, loading,
-    updateIncome, addIncome, removeIncome,
-    updateCategory, addCategory, removeCategory,
-    updateItem, addItem, removeItem, moveItemCategory,
+    updateIncome, addIncome, removeIncome, moveIncome,
+    updateCategory, addCategory, removeCategory, moveCategory,
+    updateItem, addItem, removeItem, moveItem, moveItemCategory,
+    updateRemainingColor,
+    updateIncomeColor,
+    importFromCsv,
+    exportToCsv,
     save, saveToJson, importFromJson, loadFromServer,
   };
 }
