@@ -124,8 +124,7 @@ export default function FinanceTable({
     "name",
     "monthly",
     "annual",
-    "percent",
-    "frequency",
+    "notice",
     "dates",
     "infos",
     "actions",
@@ -134,9 +133,8 @@ export default function FinanceTable({
     name: 180,
     monthly: 110,
     annual: 110,
-    percent: 70,
-    frequency: 100,
-    dates: 220,
+    notice: 140,
+    dates: 180,
     infos: 150,
     actions: 50,
   });
@@ -399,8 +397,7 @@ export default function FinanceTable({
                   if (col === "name") title = "Expense Name";
                   else if (col === "monthly") title = `Monthly (${currency})`;
                   else if (col === "annual") title = `Annual (${currency})`;
-                  else if (col === "percent") { title = "%"; alignClass = "text-center"; }
-                  else if (col === "frequency") title = "Frequency";
+                  else if (col === "notice") title = "Notice";
                   else if (col === "dates") title = "Dates / Contract";
                   else if (col === "infos") title = "Infos / Notes";
                   else if (col === "actions") { title = ""; alignClass = "text-center"; }
@@ -497,12 +494,17 @@ export default function FinanceTable({
                               className="py-2.5 px-4 border-l-[3px] border-l-transparent transition-all overflow-hidden"
                               title={`Category: ${fi.categoryName}`}
                             >
-                              <input
-                                className="w-full bg-transparent border-none outline-none text-foreground font-medium focus:underline focus:bg-background/40 py-1 px-1.5 rounded truncate"
-                                value={item.name}
-                                onChange={(e) => updateItem(ci, ii, "name", e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                              />
+                              <div className="flex items-center gap-1.5 w-full">
+                                <input
+                                  className="w-full bg-transparent border-none outline-none text-foreground font-medium focus:underline focus:bg-background/40 py-1 px-1.5 rounded truncate"
+                                  value={item.name}
+                                  onChange={(e) => updateItem(ci, ii, "name", e.target.value)}
+                                  onFocus={(e) => e.target.select()}
+                                />
+                                <span className="text-xs text-muted-foreground/80 font-mono shrink-0 select-none pr-1">
+                                  ({stats.income > 0 ? Math.round((item.value / stats.income) * 100) : 0}%)
+                                </span>
+                              </div>
                             </td>
                           );
                         }
@@ -510,12 +512,11 @@ export default function FinanceTable({
                           return (
                             <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 overflow-hidden">
                               <div className="flex items-center bg-background/30 rounded border border-transparent focus-within:border-border/80 px-1 py-0.5">
-                                <span className="text-muted-foreground mr-0.5">{currency}</span>
                                 <input
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  className="w-full bg-transparent border-none outline-none text-foreground text-right font-mono font-medium font-mono font-medium"
+                                  className="w-full bg-transparent border-none outline-none text-foreground text-left font-mono font-medium"
                                   value={
                                     (editingValue && editingValue.id === item.id && editingValue.field === "monthly")
                                       ? editingValue.val
@@ -547,12 +548,11 @@ export default function FinanceTable({
                           return (
                             <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 overflow-hidden">
                               <div className="flex items-center bg-background/30 rounded border border-transparent focus-within:border-border/80 px-1 py-0.5">
-                                <span className="text-muted-foreground mr-0.5">{currency}</span>
                                 <input
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  className="w-full bg-transparent border-none outline-none text-foreground text-right font-mono font-medium font-mono font-medium"
+                                  className="w-full bg-transparent border-none outline-none text-foreground text-left font-mono font-medium"
                                   value={
                                     (editingValue && editingValue.id === item.id && editingValue.field === "annual")
                                       ? editingValue.val
@@ -584,30 +584,22 @@ export default function FinanceTable({
                             </td>
                           );
                         }
-                        if (col === "percent") {
-                          return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 font-mono font-semibold text-muted-foreground text-center overflow-hidden">
-                              {stats.income > 0 ? (
-                                `${Math.round((item.value / stats.income) * 100)}%`
-                              ) : (
-                                "0%"
-                              )}
-                            </td>
-                          );
-                        }
-                        if (col === "frequency") {
+
+                        if (col === "notice") {
                           return (
                             <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 overflow-hidden">
-                              <select
-                                className="w-full bg-transparent border-none outline-none cursor-pointer font-medium"
-                                value={item.billingPeriod || "Monthly"}
-                                onChange={(e) => {
-                                  updateItem(ci, ii, "billingPeriod", e.target.value);
-                                }}
-                              >
-                                <option value="Monthly" className="bg-card text-foreground">Monthly</option>
-                                <option value="Annual" className="bg-card text-foreground">Annual</option>
-                              </select>
+                              {item.cancellationDate ? (
+                                <div className="flex flex-col gap-1 select-none">
+                                  <span className="text-xs font-mono font-semibold text-foreground">
+                                    {formatDateForDisplay(item.cancellationDate)}
+                                  </span>
+                                  <div className="flex items-center">
+                                    {alertBadge}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/45 italic">-</span>
+                              )}
                             </td>
                           );
                         }
@@ -633,27 +625,7 @@ export default function FinanceTable({
                                       <span className="text-muted-foreground italic font-normal">Set Dates</span>
                                     )}
                                   </span>
-                                  {item.cancellationDate && (() => {
-                                    const today = new Date();
-                                    today.setHours(0, 0, 0, 0);
-                                    const target = new Date(item.cancellationDate);
-                                    target.setHours(0, 0, 0, 0);
-                                    const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                                    
-                                    let colorClass = "text-muted-foreground";
-                                    if (diffDays < 0) colorClass = "text-muted-foreground/60 line-through";
-                                    else if (diffDays <= 30) colorClass = "text-destructive font-bold animate-pulse";
-                                    else if (diffDays <= 90) colorClass = "text-amber-500 font-bold";
-                                    
-                                    return (
-                                      <span className={`flex items-center gap-1 text-xs font-semibold mt-1 truncate ${colorClass}`}>
-                                        <Clock size={11} className="shrink-0" />
-                                        <span className="truncate">Notice: {formatDateForDisplay(item.cancellationDate)}</span>
-                                      </span>
-                                    );
-                                  })()}
                                 </button>
-                                {alertBadge}
                               </div>
 
                               {activeDateEditorItemId === item.id && (
@@ -790,45 +762,38 @@ export default function FinanceTable({
         {(() => {
           const diffMonthly = stats.income - totals.monthly;
           const diffAnnual = (stats.income * 12) - totals.annual;
-
           return (
             <div className="bg-muted/30 border-t border-border/70 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10 text-xs sm:text-sm select-none flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-muted-foreground font-medium">Income (M/A):</span>
                 <span className="font-mono font-bold text-emerald-500">
-                  {currency}
-                  {stats.income.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {stats.income.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                 </span>
                 <span className="text-muted-foreground font-semibold">/</span>
                 <span className="font-mono font-bold text-emerald-600">
-                  {currency}
-                  {(stats.income * 12).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {(stats.income * 12).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                 </span>
               </div>
               
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-muted-foreground font-medium">Expenses (M/A):</span>
                 <span className="font-mono font-bold text-foreground">
-                  {currency}
-                  {totals.monthly.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {totals.monthly.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                 </span>
                 <span className="text-muted-foreground font-semibold">/</span>
                 <span className="font-mono font-bold text-foreground">
-                  {currency}
-                  {totals.annual.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {totals.annual.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                 </span>
               </div>
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-muted-foreground font-medium">Difference (M/A):</span>
                 <span className={`font-mono font-bold ${diffMonthly >= 0 ? "text-sky-500" : "text-destructive"}`}>
-                  {diffMonthly < 0 ? "-" : ""}{currency}
-                  {Math.abs(diffMonthly).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {diffMonthly < 0 ? "-" : ""}{Math.abs(diffMonthly).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                 </span>
                 <span className="text-muted-foreground font-semibold">/</span>
                 <span className={`font-mono font-bold ${diffAnnual >= 0 ? "text-sky-600" : "text-destructive"}`}>
-                  {diffAnnual < 0 ? "-" : ""}{currency}
-                  {Math.abs(diffAnnual).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {diffAnnual < 0 ? "-" : ""}{Math.abs(diffAnnual).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
                 </span>
               </div>
             </div>

@@ -124,26 +124,30 @@ const Index = () => {
               >
                 <Table size={16} />
               </button>
+            </div>
+
+            {/* Settings + Profile Bar Frame */}
+            <div className="flex items-center bg-background md:bg-card border border-border rounded-xl h-10 px-1 gap-1.5 relative">
               <button
                 onClick={() => setChartType("settings")}
-                className={`flex-1 md:px-3.5 h-full flex items-center justify-center transition-colors ${chartType === "settings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${chartType === "settings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
                 title="Settings"
               >
                 <Settings size={16} />
               </button>
-            </div>
+              
+              <div className="h-4 w-[1px] bg-border/80" />
 
-            {/* Profile Bar */}
-            <AuthBar
-              user={user}
-              username={username}
-              loading={authLoading}
-              authEnabled={authEnabled}
-              signIn={signIn}
-              signUp={signUp}
-              signOut={signOut}
-              deleteAccount={deleteAccount}
-            />
+              <AuthBar
+                user={user}
+                username={username}
+                loading={authLoading}
+                authEnabled={authEnabled}
+                signIn={signIn}
+                signUp={signUp}
+                signOut={signOut}
+              />
+            </div>
           </div>
         </div>
 
@@ -180,6 +184,8 @@ const Index = () => {
               loading={loading}
               username={username}
               authEnabled={authEnabled}
+              user={user}
+              deleteAccount={deleteAccount}
             />
           )}
         </div>

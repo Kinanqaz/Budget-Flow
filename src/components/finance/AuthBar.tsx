@@ -1,18 +1,7 @@
 import { useState } from "react";
-import { LogOut, LogIn, UserPlus, X, Trash2 } from "lucide-react";
+import { LogOut, LogIn, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import type { ApiUser } from "@/types/api";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 interface AuthBarProps {
   user: ApiUser | null;
@@ -22,78 +11,18 @@ interface AuthBarProps {
   signIn: (username: string, password: string) => Promise<{ error: any }>;
   signUp: (username: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
 }
 
-const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut, deleteAccount }: AuthBarProps) => {
+const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut }: AuthBarProps) => {
   const [showForm, setShowForm] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [usernameInput, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   if (!authEnabled) return null;
 
-  const handleDeleteAccount = async () => {
-    setDeleting(true);
-    try {
-      await deleteAccount();
-      toast.success("Your account and all data have been deleted.");
-      await signOut();
-    } catch (e: any) {
-      toast.error("Error deleting account: " + (e.message || "Unknown"));
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   if (loading) return null;
-
-  if (user) {
-    return (
-      <div className="flex items-center gap-1 md:gap-2 shrink-0 h-10">
-        <span className="text-xs text-foreground font-semibold max-w-[50px] sm:max-w-[100px] truncate select-none hidden sm:inline">
-          {username}
-        </span>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <button
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-background md:bg-card border border-border hover:bg-destructive/10 transition-colors"
-              title="Delete account"
-            >
-              <Trash2 size={15} className="text-destructive" />
-            </button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Account</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete your account and all your saved budget data. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {deleting ? "Deleting..." : "Delete Account"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        <button
-          onClick={signOut}
-          className="w-10 h-10 flex items-center justify-center rounded-xl bg-background md:bg-card border border-border hover:bg-accent transition-colors"
-          title="Sign out"
-        >
-          <LogOut size={15} className="text-foreground" />
-        </button>
-      </div>
-    );
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,18 +47,33 @@ const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut
     }
   };
 
+  if (user) {
+    return (
+      <div className="flex items-center gap-1 md:gap-2 shrink-0 h-8">
+        <span className="text-xs text-foreground font-semibold max-w-[50px] sm:max-w-[100px] truncate select-none hidden sm:inline">
+          {username}
+        </span>
+        <button
+          onClick={signOut}
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+          title="Sign out"
+        >
+          <LogOut size={15} className="text-foreground" />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0 flex items-center">
       {/* Sign In Button */}
       <button
         onClick={() => setShowForm(true)}
-        className="flex items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity h-[38px] w-[38px] shrink-0 shadow-sm"
+        className="flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity h-8 w-8 shrink-0 shadow-sm"
         title="Sign In"
       >
-        <LogIn size={16} />
+        <LogIn size={14} />
       </button>
-
-      {/* Floating Auth Modal/Window */}
       {showForm && (
         <>
           {/* Backdrop to close when clicking outside */}

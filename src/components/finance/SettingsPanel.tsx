@@ -1,9 +1,21 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { 
   Sun, Moon, Globe, Shield, Save, 
-  Download, Upload, Check, Info 
+  Download, Upload, Check, Info, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
+import type { ApiUser } from "@/types/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Props {
   darkMode: boolean;
@@ -21,6 +33,8 @@ interface Props {
   loading: boolean;
   username: string | null;
   authEnabled: boolean;
+  user: ApiUser | null;
+  deleteAccount: () => Promise<void>;
 }
 
 export default function SettingsPanel({
@@ -39,9 +53,24 @@ export default function SettingsPanel({
   loading,
   username,
   authEnabled,
+  user,
+  deleteAccount,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      toast.success("Your account and all data have been deleted.");
+    } catch (e: any) {
+      toast.error("Error deleting account: " + (e.message || "Unknown"));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleToggleTheme = (mode: "light" | "dark") => {
     const isDark = mode === "dark";
@@ -248,6 +277,53 @@ export default function SettingsPanel({
             />
           </div>
         </div>
+
+        {/* Card 3: Danger Zone */}
+        {authEnabled && user && (
+          <div className="md:col-span-2 bg-destructive/5 border border-destructive/20 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-destructive/10">
+              <Trash2 className="text-destructive shrink-0" size={16} />
+              <h3 className="text-sm font-bold text-destructive">Danger Zone</h3>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-foreground">Delete Account</h4>
+                <p className="text-[11px] text-muted-foreground">
+                  Permanently delete your account and all saved budget data. This action cannot be undone.
+                </p>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    disabled={deleting}
+                    className="flex items-center justify-center gap-2 py-2 px-4 bg-destructive text-destructive-foreground rounded-xl text-xs font-semibold hover:bg-destructive/90 transition-all shadow-sm shrink-0"
+                  >
+                    <Trash2 size={14} /> Delete Account
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Account</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete your account and all your saved budget data. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteAccount}
+                      disabled={deleting}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleting ? "Deleting..." : "Delete Account"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Info Tips Banner */}
@@ -261,3 +337,4 @@ export default function SettingsPanel({
     </div>
   );
 }
+
