@@ -1,10 +1,11 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState } from "react";
 import type { FinanceData, ExpenseItem, Stats } from "@/types/finance";
 import { 
-  Plus, Trash2, Calendar, FileText, Info, 
-  Search, Upload, AlertTriangle, CheckCircle, 
-  HelpCircle, Clock, ArrowRight 
+  AlertTriangle, Armchair, Bike, BriefcaseBusiness, Car, Circle, Clock, Coffee,
+  Dumbbell, Gamepad2, GraduationCap, HeartPulse, Home, Music, Plane, ShoppingBag,
+  ShoppingCart, Smartphone, Trash2, Tv, Utensils, Wifi
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -12,8 +13,6 @@ interface Props {
   stats: Stats;
   updateItem: (ci: number, ii: number, field: keyof ExpenseItem, val: string | number | undefined) => void;
   removeItem: (ci: number, ii: number) => void;
-  moveItemCategory: (sourceCi: number, ii: number, targetCi: number) => void;
-  addItem: (ci: number) => void;
   currency: string;
 }
 
@@ -25,6 +24,29 @@ interface FlattenedItem {
   categoryColor: string;
   item: ExpenseItem;
 }
+
+const itemIcons: Record<string, LucideIcon> = {
+  shopping: ShoppingCart,
+  shoppingBag: ShoppingBag,
+  home: Home,
+  car: Car,
+  bike: Bike,
+  food: Utensils,
+  coffee: Coffee,
+  phone: Smartphone,
+  internet: Wifi,
+  tv: Tv,
+  music: Music,
+  games: Gamepad2,
+  travel: Plane,
+  health: HeartPulse,
+  fitness: Dumbbell,
+  education: GraduationCap,
+  work: BriefcaseBusiness,
+  furniture: Armchair,
+};
+
+const iconChoices = Object.entries(itemIcons);
 
 const parseCSVLine = (line: string): string[] => {
   const result: string[] = [];
@@ -111,13 +133,10 @@ export default function FinanceTable({
   stats,
   updateItem,
   removeItem,
-  moveItemCategory,
-  addItem,
   currency,
 }: Props) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategoryForNewItem, setSelectedCategoryForNewItem] = useState(0);
   const [activeDateEditorItemId, setActiveDateEditorItemId] = useState<string | null>(null);
+  const [iconPickerItemId, setIconPickerItemId] = useState<string | null>(null);
   const [datePopoverPos, setDatePopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   const [columns, setColumns] = useState<string[]>([
@@ -263,19 +282,6 @@ export default function FinanceTable({
     return list;
   }, [data.categories]);
 
-  // Handle Search Filtering
-  const filteredItems = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return flattenedItems;
-    return flattenedItems.filter((fi) => {
-      return (
-        fi.item.name.toLowerCase().includes(query) ||
-        fi.categoryName.toLowerCase().includes(query) ||
-        (fi.item.infos || "").toLowerCase().includes(query)
-      );
-    });
-  }, [flattenedItems, searchQuery]);
-
   // Notice alerts configuration
   const noticeAlerts = useMemo(() => {
     const today = new Date();
@@ -296,40 +302,13 @@ export default function FinanceTable({
     return noticeAlerts.filter((alert) => alert.diffDays >= 0 && alert.diffDays <= 90);
   }, [noticeAlerts]);
 
-  // Sum totals of filtered list
   const totals = useMemo(() => {
-    let monthly = 0;
-    let annual = 0;
-
-    filteredItems.forEach((fi) => {
-      const val = fi.item.value || 0;
-      monthly += val;
-      if (fi.item.billingPeriod === "Annual") {
-        annual += val * 12; // value is always monthly equivalent in hook
-      } else {
-        annual += val * 12;
-      }
-    });
-
+    const monthly = flattenedItems.reduce((sum, fi) => sum + (fi.item.value || 0), 0);
     return {
       monthly: Math.round(monthly * 100) / 100,
-      annual: Math.round(annual * 100) / 100,
+      annual: Math.round(monthly * 12 * 100) / 100,
     };
-  }, [filteredItems]);
-
-
-
-  const handleAddNewItem = () => {
-    if (data.categories.length === 0) {
-      toast.error("Please create a category in the sidebar first");
-      return;
-    }
-    // Default to the first category, or one named "Other"
-    const otherIdx = data.categories.findIndex(c => c.name.toLowerCase() === "other");
-    const defaultIndex = otherIdx !== -1 ? otherIdx : 0;
-    addItem(defaultIndex);
-    toast.success(`Added new item to ${data.categories[defaultIndex].name}`);
-  };
+  }, [flattenedItems]);
 
   return (
     <div className="flex flex-col h-full w-full space-y-4">
@@ -360,36 +339,12 @@ export default function FinanceTable({
         </div>
       )}
 
-      {/* Control bar: search & add item icon button */}
-      <div className="flex items-center gap-2 w-full">
-        <div className="relative flex-1 max-w-sm">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-            size={16}
-          />
-          <input
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-border/80 bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all"
-            placeholder="Search items, categories, or notes..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <button
-          onClick={handleAddNewItem}
-          className="flex items-center justify-center w-8 h-8 rounded-xl bg-primary text-primary-foreground hover:opacity-95 shadow-sm transition-all shrink-0"
-          title="Add Item"
-        >
-          <Plus size={16} />
-        </button>
-      </div>
-
       {/* Main Table area */}
-      <div className="flex-1 bg-card border border-border/70 rounded-xl overflow-hidden flex flex-col min-h-0">
+      <div className="flex-1 bg-card border border-border/70 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0 ring-1 ring-border/10">
         <div className="flex-1 overflow-auto scrollbar-thin">
           <table className="w-full text-left border-collapse min-w-[800px]" style={{ tableLayout: "fixed" }}>
-            <thead>
-              <tr className="bg-muted/50 border-b border-border/70 text-xs uppercase font-bold text-muted-foreground tracking-wider select-none">
+            <thead className="sticky top-0 z-10 shadow-sm">
+              <tr className="bg-card/95 backdrop-blur border-b border-border/70 text-xs uppercase font-bold text-muted-foreground tracking-wider select-none">
                 {columns.map((col, idx) => {
                   const width = colWidths[col];
                   let title = "";
@@ -438,15 +393,15 @@ export default function FinanceTable({
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60 text-sm">
-              {filteredItems.length === 0 ? (
+            <tbody className="divide-y divide-border/40 text-sm">
+              {flattenedItems.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="py-12 text-center text-muted-foreground font-medium">
-                    No expense items found. Import a CSV or add new items.
+                    No expense items found. Import a CSV to get started.
                   </td>
                 </tr>
               ) : (
-                filteredItems.map((fi, idx) => {
+                flattenedItems.map((fi) => {
                   const { item, categoryIndex: ci, itemIndex: ii } = fi;
 
                   // Compute notice alert status
@@ -482,7 +437,7 @@ export default function FinanceTable({
                   return (
                     <tr
                       key={item.id}
-                      className="hover:bg-muted/30 group transition-all"
+                      className="even:bg-muted/10 hover:bg-accent/35 group transition-colors"
                     >
                       {columns.map((col) => {
                         const width = colWidths[col];
@@ -491,32 +446,64 @@ export default function FinanceTable({
                             <td
                               key={col}
                               style={{ borderLeftColor: fi.categoryColor, width, maxWidth: width }}
-                              className="py-2.5 px-4 border-l-[3px] border-l-transparent transition-all overflow-hidden"
+                              className="py-1.5 px-4 border-l-[3px] border-l-transparent transition-all overflow-visible"
                               title={`Category: ${fi.categoryName}`}
                             >
                               <div className="flex items-center gap-1.5 w-full">
+                                <div className="relative shrink-0">
+                                  {(() => {
+                                    const ItemIcon = itemIcons[item.icon || ""] || Circle;
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => setIconPickerItemId(iconPickerItemId === item.id ? null : item.id)}
+                                        className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                        title="Choose item icon"
+                                        aria-label={`Choose icon for ${item.name}`}
+                                      >
+                                        <ItemIcon size={14} />
+                                      </button>
+                                    );
+                                  })()}
+                                  {iconPickerItemId === item.id && (
+                                    <div className="absolute left-0 top-7 z-30 grid w-44 grid-cols-5 gap-1 rounded-xl border border-border/90 bg-card p-2 shadow-xl">
+                                      {iconChoices.map(([iconKey, Icon]) => (
+                                        <button
+                                          key={iconKey}
+                                          type="button"
+                                          onClick={() => {
+                                            updateItem(ci, ii, "icon", iconKey);
+                                            setIconPickerItemId(null);
+                                          }}
+                                          className={`flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground ${item.icon === iconKey ? "bg-primary/15 text-primary" : "text-muted-foreground"}`}
+                                          title={iconKey}
+                                          aria-label={iconKey}
+                                        >
+                                          <Icon size={14} />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                                 <input
                                   className="w-full bg-transparent border-none outline-none text-foreground font-medium focus:underline focus:bg-background/40 py-1 px-1.5 rounded truncate"
                                   value={item.name}
                                   onChange={(e) => updateItem(ci, ii, "name", e.target.value)}
                                   onFocus={(e) => e.target.select()}
                                 />
-                                <span className="text-xs text-muted-foreground/80 font-mono shrink-0 select-none pr-1">
-                                  ({stats.income > 0 ? Math.round((item.value / stats.income) * 100) : 0}%)
-                                </span>
                               </div>
                             </td>
                           );
                         }
                         if (col === "monthly") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 overflow-hidden">
-                              <div className="flex items-center bg-background/30 rounded border border-transparent focus-within:border-border/80 px-1 py-0.5">
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 overflow-hidden">
+                              <div className="flex items-center px-1 py-0.5">
                                 <input
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  className="w-full bg-transparent border-none outline-none text-foreground text-left font-mono font-medium"
+                                  className="min-w-0 flex-1 bg-transparent border-none outline-none text-foreground text-left font-mono font-medium"
                                   value={
                                     (editingValue && editingValue.id === item.id && editingValue.field === "monthly")
                                       ? editingValue.val
@@ -540,14 +527,17 @@ export default function FinanceTable({
                                     setEditingValue(null);
                                   }}
                                 />
+                                <span className="text-xs text-muted-foreground/80 font-mono shrink-0 select-none px-1">
+                                  ({stats.income > 0 ? Math.round((item.value / stats.income) * 100) : 0}%)
+                                </span>
                               </div>
                             </td>
                           );
                         }
                         if (col === "annual") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 overflow-hidden">
-                              <div className="flex items-center bg-background/30 rounded border border-transparent focus-within:border-border/80 px-1 py-0.5">
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 overflow-hidden">
+                              <div className="flex items-center px-1 py-0.5">
                                 <input
                                   type="number"
                                   step="0.01"
@@ -587,7 +577,7 @@ export default function FinanceTable({
 
                         if (col === "notice") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 overflow-hidden">
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 overflow-hidden">
                               {item.cancellationDate ? (
                                 <div className="flex flex-col gap-1 select-none">
                                   <span className="text-xs font-mono font-semibold text-foreground">
@@ -605,7 +595,7 @@ export default function FinanceTable({
                         }
                         if (col === "dates") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 relative">
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 relative">
                               <div className="flex items-center gap-2 select-none">
                                 <button
                                   onClick={(e) => {
@@ -722,7 +712,7 @@ export default function FinanceTable({
                         }
                         if (col === "infos") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 overflow-hidden">
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 overflow-hidden">
                               <input
                                 className="w-full bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/30 focus:underline focus:text-foreground focus:bg-background/40 py-1 px-1.5 rounded truncate"
                                 placeholder="e.g. Allianz"
@@ -735,11 +725,13 @@ export default function FinanceTable({
                         }
                         if (col === "actions") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-2.5 px-4 text-center overflow-hidden">
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 text-center overflow-hidden">
                               <button
                                 onClick={() => {
-                                  removeItem(ci, ii);
-                                  toast.success(`Removed ${item.name}`);
+                                  if (window.confirm(`Delete item "${item.name}"?`)) {
+                                    removeItem(ci, ii);
+                                    toast.success(`Removed ${item.name}`);
+                                  }
                                 }}
                                 className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                               >
@@ -755,50 +747,38 @@ export default function FinanceTable({
                 })
               )}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border/80 bg-muted/25 text-sm font-semibold">
+                {columns.map((col) => {
+                  const width = colWidths[col];
+                  if (col === "name") {
+                    return (
+                      <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 text-muted-foreground">
+                        Total
+                      </td>
+                    );
+                  }
+                  if (col === "monthly") {
+                    return (
+                      <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 font-mono text-foreground">
+                        {totals.monthly.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
+                      </td>
+                    );
+                  }
+                  if (col === "annual") {
+                    return (
+                      <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 font-mono text-foreground">
+                        {totals.annual.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
+                      </td>
+                    );
+                  }
+                  return <td key={col} style={{ width, maxWidth: width }} />;
+                })}
+              </tr>
+            </tfoot>
           </table>
         </div>
 
-        {/* Footer Summary Bar */}
-        {(() => {
-          const diffMonthly = stats.income - totals.monthly;
-          const diffAnnual = (stats.income * 12) - totals.annual;
-          return (
-            <div className="bg-muted/30 border-t border-border/70 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10 text-xs sm:text-sm select-none flex-wrap">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-muted-foreground font-medium">Income (M/A):</span>
-                <span className="font-mono font-bold text-emerald-500">
-                  {stats.income.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                </span>
-                <span className="text-muted-foreground font-semibold">/</span>
-                <span className="font-mono font-bold text-emerald-600">
-                  {(stats.income * 12).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-muted-foreground font-medium">Expenses (M/A):</span>
-                <span className="font-mono font-bold text-foreground">
-                  {totals.monthly.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                </span>
-                <span className="text-muted-foreground font-semibold">/</span>
-                <span className="font-mono font-bold text-foreground">
-                  {totals.annual.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-muted-foreground font-medium">Difference (M/A):</span>
-                <span className={`font-mono font-bold ${diffMonthly >= 0 ? "text-sky-500" : "text-destructive"}`}>
-                  {diffMonthly < 0 ? "-" : ""}{Math.abs(diffMonthly).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                </span>
-                <span className="text-muted-foreground font-semibold">/</span>
-                <span className={`font-mono font-bold ${diffAnnual >= 0 ? "text-sky-600" : "text-destructive"}`}>
-                  {diffAnnual < 0 ? "-" : ""}{Math.abs(diffAnnual).toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                </span>
-              </div>
-            </div>
-          );
-        })()}
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ const STORAGE_KEY = "budgetflow-data";
 const CURRENCY_KEY = "budgetflow-currency";
 const uid = () => "_" + Math.random().toString(36).slice(2, 9);
 
-const defaultCurrencies = ["€", "$", "£", "CHF", "¥", "₹", "₽", "¥", "₩"];
+const defaultCurrencies = ["\u20ac", "$", "\u00a3", "CHF", "\u00a5", "\u20b9", "\u20bd", "\u20a9"];
 
 const defaultData: FinanceData = {
   income: [{ id: "i0", name: "Income", value: 3000 }],

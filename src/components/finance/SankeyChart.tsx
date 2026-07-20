@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { FinanceData, Stats, ExpenseItem } from "@/types/finance";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -13,6 +13,7 @@ interface Props {
   stats: Stats;
   showPercent?: boolean;
   currency?: string;
+  mobileZoom?: number;
 }
 
 const getCategoryItemColor = (catColor: string, itemIndex: number, totalItems: number): string => {
@@ -86,6 +87,21 @@ const getCategoryItemColor = (catColor: string, itemIndex: number, totalItems: n
 
 export default function SankeyChart({ data, stats, showPercent = false, currency = "€" }: Props) {
   const isMobile = useIsMobile();
+  const mobileZoom = (arguments[0] as Props).mobileZoom ?? 1;
+  const chartScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMobile || !chartScrollRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      const container = chartScrollRef.current;
+      if (container) {
+        container.scrollLeft = container.scrollWidth - container.clientWidth;
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isMobile, mobileZoom]);
   const svgContent = useMemo(() => {
     const tot = stats.income;
     if (tot <= 0) return null;
@@ -494,8 +510,39 @@ export default function SankeyChart({ data, stats, showPercent = false, currency
     );
   }
   return (
-    <div className="w-full h-full flex items-center justify-center p-2">
-      <div className="w-full h-full max-w-[650px] md:max-w-none flex-shrink-0">
+    <div ref={chartScrollRef} className="relative w-full h-full overflow-x-auto overflow-y-hidden flex items-center justify-start md:justify-center p-2">
+      {isMobile && (
+        <div className="hidden absolute top-2 left-2 z-10 flex items-center gap-1 rounded-lg border border-border/70 bg-background/90 p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => {}}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Zoom out flow chart"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => {}}
+            className="min-w-10 rounded-md px-1 text-[10px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Reset flow chart zoom"
+          >
+            {Math.round(mobileZoom * 100)}%
+          </button>
+          <button
+            type="button"
+            onClick={() => {}}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Zoom in flow chart"
+          >
+            +
+          </button>
+        </div>
+      )}
+      <div
+        className="w-full h-full max-w-[650px] md:max-w-none flex-shrink-0"
+        style={isMobile ? { width: `${mobileZoom * 100}%`, maxWidth: "none" } : undefined}
+      >
         <svg viewBox={`${svgContent.startX} 0 ${svgContent.W} ${svgContent.H}`} className="w-full h-full max-h-full" preserveAspectRatio="xMidYMid meet">
           {svgContent.elements}
         </svg>

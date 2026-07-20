@@ -8,6 +8,7 @@ export interface ExpenseItem {
   id: string;
   name: string;
   value: number;
+  icon?: string;
   startDate?: string;
   endDate?: string;
   infos?: string;

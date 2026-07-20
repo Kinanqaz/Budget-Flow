@@ -46,7 +46,7 @@ export default function FinanceSidebar({
   };
 
   return (
-    <aside className="w-[300px] min-w-[300px] bg-card flex flex-col h-screen border-r border-border/60">
+    <aside className="w-[300px] min-w-[300px] bg-muted/30 flex flex-col h-screen border-r border-border/60">
       {/* Header / Logo */}
       <div className="px-5 py-4 border-b border-border/60">
         <div className="flex items-center gap-2.5">
@@ -68,7 +68,7 @@ export default function FinanceSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-1">
+      <div className="flex-1 overflow-y-auto scrollbar-thin px-2.5 py-3 space-y-3">
         {/* Income */}
         <div className="flex items-center justify-between mt-1 mb-2 pr-1">
           <div className="flex items-center gap-1.5">
@@ -113,19 +113,19 @@ export default function FinanceSidebar({
               }
               setDraggedIncomeIdx(null);
             }}
-            className={`flex items-center gap-1.5 group mb-1 ${draggedIncomeIdx === i ? "opacity-45" : ""}`}
+            className={`grid grid-cols-[14px_minmax(0,1fr)_64px_24px] items-center gap-1 group mb-1 border-b border-border/40 pb-1 ${draggedIncomeIdx === i ? "opacity-45" : ""}`}
           >
             <div className="text-muted-foreground/30 group-hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors shrink-0 p-0.5" title="Drag to reorder">
               <GripVertical size={13} />
             </div>
             <input
-              className="flex-1 text-xs px-2.5 py-2 rounded-lg border border-border/70 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all min-w-0"
+              className="w-full text-xs px-2 py-1 rounded-md border border-border/60 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all min-w-0"
               value={inc.name}
               onChange={(e) => updateIncome(i, "name", e.target.value)}
               onFocus={(e) => e.target.select()}
             />
             <input
-              className="w-[76px] text-xs px-2.5 py-2 rounded-lg border border-border/70 bg-background text-foreground text-right focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all"
+              className="w-full text-xs px-2 py-1 rounded-md border border-border/60 bg-background text-foreground text-right focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all"
               type="number"
               step="0.01"
               min="0"
@@ -134,8 +134,12 @@ export default function FinanceSidebar({
               onFocus={(e) => e.target.select()}
             />
             <button
-              onClick={() => removeIncome(i)}
-              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-1 rounded-md hover:bg-destructive/10 shrink-0"
+              onClick={() => {
+                if (window.confirm(`Delete income "${inc.name}"?`)) {
+                  removeIncome(i);
+                }
+              }}
+              className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 shrink-0"
               title="Delete"
             >
               <X size={12} />
@@ -143,7 +147,7 @@ export default function FinanceSidebar({
           </div>
         ))}
         {/* Categories */}
-        <div className="flex items-center justify-between mt-4 mb-2 border-t border-border/30 pt-3 pr-1">
+        <div className="flex items-center justify-between mt-2 mb-1 pt-2 pr-1">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Categories</p>
           <button
             onClick={addCategory}
@@ -154,7 +158,7 @@ export default function FinanceSidebar({
           </button>
         </div>
         {data.categories.map((cat, ci) => (
-          <div key={cat.id} className="mt-2">
+          <div key={cat.id} className="pb-2">
             <div
               draggable
               onDragStart={(e) => {
@@ -170,7 +174,7 @@ export default function FinanceSidebar({
                 }
                 setDraggedCategoryIdx(null);
               }}
-              className={`flex items-center gap-1.5 pb-1.5 mb-1.5 border-b-2 group ${draggedCategoryIdx === ci ? "opacity-45" : ""}`}
+              className={`flex items-center gap-1.5 pb-1 mb-1 border-b-2 group ${draggedCategoryIdx === ci ? "opacity-45" : ""}`}
               style={{ borderBottomColor: cat.color }}
             >
               <label className="relative cursor-pointer flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform">
@@ -197,14 +201,18 @@ export default function FinanceSidebar({
               />
               <button
                 onClick={() => addItem(ci)}
-                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-opacity p-1 rounded hover:bg-accent/40 shrink-0"
+                className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-md hover:bg-accent/40 shrink-0"
                 title="Add item"
               >
                 <Plus size={12} />
               </button>
               <button
-                onClick={() => removeCategory(ci)}
-                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-1 rounded hover:bg-destructive/10 shrink-0"
+                onClick={() => {
+                  if (window.confirm(`Delete category "${cat.name}" and all its items?`)) {
+                    removeCategory(ci);
+                  }
+                }}
+                className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 shrink-0"
                 title="Delete category"
               >
                 <X size={12} />
@@ -220,19 +228,19 @@ export default function FinanceSidebar({
                 }}
                 onDragOver={handleItemDragOver}
                 onDrop={() => handleItemDrop(ci, ii)}
-                className={`flex items-center gap-1.5 ml-3 my-1 group ${draggedItemIdx?.ci === ci && draggedItemIdx?.ii === ii ? "opacity-45" : ""}`}
+                className={`grid grid-cols-[14px_minmax(0,1fr)_64px_24px] items-center gap-1 ml-2 my-0.5 group ${draggedItemIdx?.ci === ci && draggedItemIdx?.ii === ii ? "opacity-45" : ""}`}
               >
                 <div className="text-muted-foreground/30 group-hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors shrink-0 p-0.5" title="Drag item to reorder">
                   <GripVertical size={13} />
                 </div>
                 <input
-                  className="flex-1 text-xs px-2.5 py-2 rounded-lg border border-border/70 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all min-w-0"
+                  className="w-full text-xs px-2 py-1 rounded-md border border-border/60 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all min-w-0"
                   value={item.name}
                   onChange={(e) => updateItem(ci, ii, "name", e.target.value)}
                   onFocus={(e) => e.target.select()}
                 />
                 <input
-                  className="w-[76px] text-xs px-2.5 py-2 rounded-lg border border-border/70 bg-background text-foreground text-right focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all"
+                  className="w-full text-xs px-2 py-1 rounded-md border border-border/60 bg-background text-foreground text-right focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all"
                   type="number"
                   step="0.01"
                   min="0"
@@ -241,8 +249,12 @@ export default function FinanceSidebar({
                   onFocus={(e) => e.target.select()}
                 />
                 <button
-                  onClick={() => removeItem(ci, ii)}
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-1 rounded-md hover:bg-destructive/10 shrink-0"
+                  onClick={() => {
+                    if (window.confirm(`Delete item "${item.name}"?`)) {
+                      removeItem(ci, ii);
+                    }
+                  }}
+                  className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 shrink-0"
                   title="Delete item"
                 >
                   <X size={12} />

@@ -248,7 +248,7 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
 
   return (
     <div className="w-full h-full flex flex-col md:flex-row items-center justify-center gap-6 overflow-y-auto p-4">
-      <div className="w-full max-w-[320px] md:max-w-[750px] aspect-square flex items-center justify-center shrink-0">
+      <div className="w-full max-w-[320px] md:max-w-[680px] aspect-square flex items-center justify-center shrink-0">
         <svg
           viewBox={isMobile ? "160 160 480 480" : `0 0 ${size} ${size}`}
           className="w-full h-full"

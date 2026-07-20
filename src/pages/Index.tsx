@@ -4,19 +4,20 @@ import { useAuth } from "@/hooks/useAuth";
 import FinanceSidebar from "@/components/finance/FinanceSidebar";
 import SankeyChart from "@/components/finance/SankeyChart";
 import AuthBar from "@/components/finance/AuthBar";
-import { PanelLeftOpen, ChevronDown, Split, PieChart, Table, Settings } from "lucide-react";
+import { PanelLeftOpen, Split, PieChart, Table, Settings, BarChart3 } from "lucide-react";
 import DonutChart from "@/components/finance/DonutChart";
 import FinanceTable from "@/components/finance/FinanceTable";
+import AnalysisPanel from "@/components/finance/AnalysisPanel";
 import SettingsPanel from "@/components/finance/SettingsPanel";
 
 const Index = () => {
   const { user, loading: authLoading, username, authEnabled, signIn, signUp, signOut, deleteAccount } = useAuth();
 
   const {
-    data, setData, stats, darkMode, setDarkMode, currency, setCurrency, currencies, loading,
+    data, stats, darkMode, setDarkMode, currency, setCurrency, currencies, loading,
     updateIncome, addIncome, removeIncome, moveIncome,
     updateCategory, addCategory, removeCategory, moveCategory,
-    updateItem, addItem, removeItem, moveItem, moveItemCategory,
+    updateItem, addItem, removeItem, moveItem,
     updateRemainingColor,
     updateIncomeColor,
     importFromCsv,
@@ -26,7 +27,8 @@ const Index = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
-  const [chartType, setChartType] = useState<"sankey" | "donut" | "table" | "settings">("sankey");
+  const [mobileFlowZoom, setMobileFlowZoom] = useState(1.5);
+  const [chartType, setChartType] = useState<"sankey" | "donut" | "table" | "analyses" | "settings">("sankey");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -35,7 +37,7 @@ const Index = () => {
   return (
     <div className="flex h-screen overflow-hidden relative">
       {/* Sidebar Overlay backdrop on mobile */}
-      {sidebarOpen && (
+      {sidebarOpen && chartType !== "analyses" && (
         <div 
           onClick={() => setSidebarOpen(false)}
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
@@ -43,8 +45,10 @@ const Index = () => {
       )}
 
       <div
-        className={`transition-all duration-300 ease-in-out ${
-          sidebarOpen 
+        className={`${chartType === "analyses" ? "hidden" : "transition-all duration-300 ease-in-out"} ${
+          chartType === "analyses"
+            ? "w-0 min-w-0"
+            : sidebarOpen
             ? "w-[300px] min-w-[300px] md:relative fixed inset-y-0 left-0 z-50 shadow-2xl md:shadow-none" 
             : "w-0 min-w-0 md:relative fixed inset-y-0 left-0"
         } overflow-hidden`}
@@ -68,14 +72,14 @@ const Index = () => {
         />
       </div>
 
-      <main className="flex-1 overflow-auto p-4 flex flex-col min-w-0">
-        <div className="flex items-center justify-between gap-2.5 mb-4 bg-card md:bg-transparent p-2.5 md:p-0 border border-border/40 md:border-none rounded-2xl select-none w-full flex-nowrap">
+      <main className={`flex-1 overflow-auto p-4 flex flex-col min-w-0 ${chartType === "analyses" ? "scrollbar-hidden" : ""}`}>
+        <div className="flex items-center justify-between gap-2.5 mb-4 select-none w-full flex-nowrap">
           {/* Left: Sidebar Toggle */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {!sidebarOpen && (
+            {!sidebarOpen && chartType !== "analyses" && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-background md:bg-card border border-border hover:bg-accent transition-colors shrink-0"
+                className="w-11 h-11 flex items-center justify-center rounded-xl bg-background md:bg-card border border-border hover:bg-accent transition-colors shrink-0"
                 title="Open sidebar"
               >
                 <PanelLeftOpen size={18} className="text-foreground" />
@@ -85,24 +89,8 @@ const Index = () => {
 
           {/* Right: Consolidated Controls (Currency + Views + Account) */}
           <div className="flex items-center gap-2 shrink-0 ml-auto flex-nowrap flex-1 md:flex-initial justify-end">
-            {/* Unit Toggle */}
-            <div className="flex items-center bg-background md:bg-card border border-border rounded-xl overflow-hidden h-10 flex-1 md:flex-initial">
-              <button
-                onClick={() => setShowPercent(false)}
-                className={`flex-1 md:px-3 text-xs font-semibold h-full transition-colors ${!showPercent ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {currency}
-              </button>
-              <button
-                onClick={() => setShowPercent(true)}
-                className={`flex-1 md:px-3.5 text-xs font-semibold h-full transition-colors ${showPercent ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                %
-              </button>
-            </div>
-
             {/* Chart Switcher */}
-            <div className="flex items-center bg-background md:bg-card border border-border rounded-xl overflow-hidden h-10 flex-[2] md:flex-initial">
+            <div className="flex items-center bg-background md:bg-card border border-border rounded-xl overflow-hidden h-11 flex-[2] md:flex-initial">
               <button
                 onClick={() => setChartType("sankey")}
                 className={`flex-1 md:px-3.5 h-full flex items-center justify-center transition-colors ${chartType === "sankey" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -124,13 +112,20 @@ const Index = () => {
               >
                 <Table size={16} />
               </button>
+              <button
+                onClick={() => setChartType("analyses")}
+                className={`flex-1 md:px-3.5 h-full flex items-center justify-center transition-colors ${chartType === "analyses" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                title="Analyses"
+              >
+                <BarChart3 size={16} />
+              </button>
             </div>
 
             {/* Settings + Profile Bar Frame */}
-            <div className="flex items-center bg-background md:bg-card border border-border rounded-xl h-10 px-1 gap-1.5 relative">
+            <div className="flex items-center bg-background md:bg-card border border-border rounded-xl h-11 px-1 gap-1.5 relative">
               <button
                 onClick={() => setChartType("settings")}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${chartType === "settings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${chartType === "settings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
                 title="Settings"
               >
                 <Settings size={16} />
@@ -151,22 +146,70 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="flex-1 bg-card border border-border rounded-xl p-4 flex flex-col min-h-0 overflow-y-auto">
+        <div className={`relative flex-1 ${chartType === "table" ? "p-1" : "p-4"} flex flex-col min-h-0 overflow-y-auto`}>
+          {(chartType === "sankey" || chartType === "donut") && (
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+              {chartType === "sankey" && (
+                <div className="flex items-center bg-background/95 border border-border rounded-xl overflow-hidden h-10 shadow-sm md:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMobileFlowZoom((zoom) => Math.max(1, zoom - 0.25))}
+                    className="flex h-10 w-10 items-center justify-center text-lg font-bold text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Zoom out flow chart"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileFlowZoom(1.5)}
+                    className="min-w-14 px-2 text-sm font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Reset flow chart zoom"
+                  >
+                    {Math.round(mobileFlowZoom * 100)}%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileFlowZoom((zoom) => Math.min(2, zoom + 0.25))}
+                    className="flex h-10 w-10 items-center justify-center text-lg font-bold text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Zoom in flow chart"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center bg-background/95 border border-border rounded-xl overflow-hidden h-10 shadow-sm">
+              <button
+                onClick={() => setShowPercent(false)}
+                className={`px-3 text-xs font-semibold h-full transition-colors ${!showPercent ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                aria-label={`Show values in ${currency}`}
+              >
+                {currency}
+              </button>
+              <button
+                onClick={() => setShowPercent(true)}
+                className={`px-3.5 text-xs font-semibold h-full transition-colors ${showPercent ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                aria-label="Show percentages"
+              >
+                %
+              </button>
+              </div>
+            </div>
+          )}
+
           {chartType === "sankey" ? (
-            <SankeyChart data={data} stats={stats} showPercent={showPercent} currency={currency} />
+            <SankeyChart data={data} stats={stats} showPercent={showPercent} currency={currency} mobileZoom={mobileFlowZoom} />
           ) : chartType === "donut" ? (
             <DonutChart data={data} stats={stats} currency={currency} showPercent={showPercent} />
           ) : chartType === "table" ? (
             <FinanceTable
               data={data}
-              setData={setData}
               stats={stats}
               updateItem={updateItem}
               removeItem={removeItem}
-              moveItemCategory={moveItemCategory}
-              addItem={addItem}
               currency={currency}
             />
+          ) : chartType === "analyses" ? (
+            <AnalysisPanel stats={stats} currency={currency} />
           ) : (
             <SettingsPanel
               darkMode={darkMode}

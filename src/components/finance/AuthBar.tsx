@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogOut, LogIn, UserPlus, X } from "lucide-react";
+import { LogIn, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import type { ApiUser } from "@/types/api";
 
@@ -55,10 +55,11 @@ const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut
         </span>
         <button
           onClick={signOut}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity"
           title="Sign out"
+          aria-label={`Sign out ${username}`}
         >
-          <LogOut size={15} className="text-foreground" />
+          {username.trim().charAt(0).toUpperCase() || "?"}
         </button>
       </div>
     );
