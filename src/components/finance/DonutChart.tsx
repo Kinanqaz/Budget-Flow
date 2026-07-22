@@ -193,12 +193,11 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
     return {
       segments,
       total: stats.income,
-      totalExpenses,
       isOverspending,
       centerText,
       centerLabel,
     };
-  }, [stats, currency, showPercent]);
+  }, [data.remainingColor, stats, currency, showPercent]);
 
   // Sort and adjust label positions to prevent vertical overlaps
   const labels = useMemo(() => {
@@ -247,8 +246,8 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
   }
 
   return (
-    <div className="w-full h-full flex flex-col md:flex-row items-center justify-center gap-6 overflow-y-auto p-4">
-      <div className="w-full max-w-[320px] md:max-w-[680px] aspect-square flex items-center justify-center shrink-0">
+    <div className="w-full h-full flex flex-col md:flex-row items-center justify-center gap-6 overflow-y-auto p-2 md:p-4">
+      <div className="w-full max-w-[300px] md:max-w-[680px] aspect-square flex items-center justify-center shrink-0">
         <svg
           viewBox={isMobile ? "160 160 480 480" : `0 0 ${size} ${size}`}
           className="w-full h-full"
@@ -356,7 +355,7 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
 
       {/* HTML Legend - visible on mobile screens below the chart */}
       {isMobile && (
-        <div className="w-full space-y-2 border-t border-border/40 pt-4 px-2 max-h-[220px] overflow-y-auto scrollbar-thin">
+        <div className="w-full space-y-2 border-t border-border/40 pt-4 px-0 md:px-2 max-h-[360px] overflow-y-auto scrollbar-thin">
           {segments.map((seg) => (
             <div key={seg.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border/10 last:border-b-0">
               <div className="flex items-center gap-2 min-w-0">
@@ -366,7 +365,7 @@ export default function DonutChart({ data, stats, currency = "€", showPercent 
                   <span className="text-[10px] text-muted-foreground truncate">({seg.catName})</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 font-medium text-foreground flex-shrink-0">
+              <div className="flex items-center gap-2 font-display font-medium text-foreground flex-shrink-0">
                 <span>{seg.percentage}%</span>
                 <span className="text-muted-foreground/40">·</span>
                 <span className="font-mono">{seg.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>

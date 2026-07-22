@@ -28,7 +28,7 @@ import { useFinanceData } from "@/hooks/useFinanceData";
 const STORAGE_KEY = "budgetflow-data";
 const CURRENCY_KEY = "budgetflow-currency";
 
-function setLocalStorageData(data: any) {
+function setLocalStorageData(data: unknown) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
@@ -57,6 +57,30 @@ describe("useFinanceData", () => {
       expect(result.current.stats.remaining).toBe(3500);
       expect(result.current.stats.cats).toHaveLength(1);
       expect(result.current.stats.cats[0].total).toBe(1500);
+    });
+
+    it("tracks investments separately while subtracting them from remaining", () => {
+      setLocalStorageData({
+        income: [{ id: "i1", name: "Salary", value: 5000 }],
+        categories: [
+          {
+            id: "c1", name: "Housing", color: "#f00", type: "expense",
+            items: [{ id: "w1", name: "Rent", value: 1500 }],
+          },
+          {
+            id: "c2", name: "ETF", color: "#0f0", type: "investment",
+            items: [{ id: "w2", name: "Monthly ETF", value: 500 }],
+          },
+        ],
+      });
+
+      const { result } = renderHook(() => useFinanceData("user1", true));
+
+      expect(result.current.stats.expenses).toBe(1500);
+      expect(result.current.stats.investments).toBe(500);
+      expect(result.current.stats.remaining).toBe(3000);
+      expect(result.current.stats.expenseCats).toHaveLength(1);
+      expect(result.current.stats.investmentCats).toHaveLength(1);
     });
 
     it("returns zero stats for empty data", () => {

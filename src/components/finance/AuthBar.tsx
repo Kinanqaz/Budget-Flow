@@ -8,8 +8,8 @@ interface AuthBarProps {
   username: string;
   loading: boolean;
   authEnabled: boolean;
-  signIn: (username: string, password: string) => Promise<{ error: any }>;
-  signUp: (username: string, password: string) => Promise<{ error: any }>;
+  signIn: (username: string, password: string) => Promise<{ error: unknown }>;
+  signUp: (username: string, password: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
 }
 
@@ -55,7 +55,7 @@ const AuthBar = ({ user, username, loading, authEnabled, signIn, signUp, signOut
         </span>
         <button
           onClick={signOut}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity"
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-border bg-transparent text-foreground text-sm font-bold hover:bg-accent transition-colors"
           title="Sign out"
           aria-label={`Sign out ${username}`}
         >

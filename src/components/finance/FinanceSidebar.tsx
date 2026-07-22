@@ -1,6 +1,13 @@
-import { useState } from "react";
-import { Plus, X, TrendingUp, PanelLeftClose, GripVertical } from "lucide-react";
-import type { FinanceData } from "@/types/finance";
+import { Fragment } from "react";
+import { ArrowDown, ArrowUp, ChartNoAxesCombined, ChevronLeft, CircleDollarSign, MoreHorizontal, Plus, Receipt, Trash2, TrendingUp } from "lucide-react";
+import type { FinanceData, CategoryType } from "@/types/finance";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Props {
   data: FinanceData;
@@ -8,8 +15,8 @@ interface Props {
   addIncome: () => void;
   removeIncome: (i: number) => void;
   moveIncome: (fromIndex: number, toIndex: number) => void;
-  updateCategory: (ci: number, f: "name" | "color", v: string) => void;
-  addCategory: () => void;
+  updateCategory: (ci: number, f: "name" | "color" | "type", v: string) => void;
+  addCategory: (type?: CategoryType) => void;
   removeCategory: (ci: number) => void;
   moveCategory: (fromIndex: number, toIndex: number) => void;
   updateItem: (ci: number, ii: number, f: "name" | "value", v: string | number) => void;
@@ -25,25 +32,9 @@ export default function FinanceSidebar({
   updateCategory, addCategory, removeCategory, moveCategory,
   updateItem, addItem, removeItem, moveItem, updateIncomeColor, onClose,
 }: Props) {
-
-  const [draggedIncomeIdx, setDraggedIncomeIdx] = useState<number | null>(null);
-  const [draggedCategoryIdx, setDraggedCategoryIdx] = useState<number | null>(null);
-  const [draggedItemIdx, setDraggedItemIdx] = useState<{ ci: number; ii: number } | null>(null);
-
-  const handleItemDragStart = (ci: number, ii: number) => {
-    setDraggedItemIdx({ ci, ii });
-  };
-
-  const handleItemDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleItemDrop = (ci: number, ii: number) => {
-    if (draggedItemIdx !== null && draggedItemIdx.ci === ci && draggedItemIdx.ii !== ii) {
-      moveItem(ci, draggedItemIdx.ii, ii);
-    }
-    setDraggedItemIdx(null);
-  };
+  const orderedCategories = data.categories
+    .map((category, index) => ({ category, index, type: (category.type || "expense") as CategoryType }))
+    .sort((a, b) => Number(a.type === "investment") - Number(b.type === "investment"));
 
   return (
     <aside className="w-[300px] min-w-[300px] bg-muted/30 flex flex-col h-screen border-r border-border/60">
@@ -58,66 +49,45 @@ export default function FinanceSidebar({
             <p className="text-[10px] text-muted-foreground mt-0.5">Your financial overview</p>
           </div>
           <div className="flex-1" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+                title="Add category"
+                aria-label="Add category"
+              >
+                <Plus size={15} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={addIncome}><Plus size={14} /> Add as income</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => addCategory("expense")}><Plus size={14} /> Add as expense</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => addCategory("investment")}><Plus size={14} /> Add as investment</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             title="Close sidebar"
+            aria-label="Close sidebar"
           >
-            <PanelLeftClose size={16} />
+            <ChevronLeft size={18} />
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin px-2.5 py-3 space-y-3">
-        {/* Income */}
-        <div className="flex items-center justify-between mt-1 mb-2 pr-1">
-          <div className="flex items-center gap-1.5">
-            {/* Income Color Picker Dot */}
-            <label className="relative cursor-pointer flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform">
+        {data.income.map((inc, i) => (
+          <div key={inc.id} className="grid grid-cols-[20px_minmax(0,1fr)_64px_24px] items-center gap-1 group mb-1 border-b border-border/40 pb-1">
+            <label className="relative flex h-6 w-5 cursor-pointer items-center justify-center text-emerald-500 hover:text-emerald-400" title="Choose income color">
               <input
                 type="color"
                 value={data.incomeColor || "#2196F3"}
                 onChange={(e) => updateIncomeColor(e.target.value)}
                 className="sr-only"
               />
-              <div 
-                className="w-3.5 h-3.5 rounded-full shadow-sm flex-shrink-0"
-                style={{ backgroundColor: data.incomeColor || "#2196F3" }}
-                title="Choose income color"
-              />
+              <CircleDollarSign size={15} style={{ color: data.incomeColor || "#2196F3" }} />
             </label>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Income</p>
-          </div>
-          <button
-            onClick={addIncome}
-            className="text-muted-foreground hover:text-primary p-0.5 rounded hover:bg-accent transition-colors"
-            title="Add income"
-          >
-            <Plus size={12} />
-          </button>
-        </div>
-        {data.income.map((inc, i) => (
-          <div
-            key={inc.id}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = "move";
-              setDraggedIncomeIdx(i);
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-            }}
-            onDrop={() => {
-              if (draggedIncomeIdx !== null && draggedIncomeIdx !== i) {
-                moveIncome(draggedIncomeIdx, i);
-              }
-              setDraggedIncomeIdx(null);
-            }}
-            className={`grid grid-cols-[14px_minmax(0,1fr)_64px_24px] items-center gap-1 group mb-1 border-b border-border/40 pb-1 ${draggedIncomeIdx === i ? "opacity-45" : ""}`}
-          >
-            <div className="text-muted-foreground/30 group-hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors shrink-0 p-0.5" title="Drag to reorder">
-              <GripVertical size={13} />
-            </div>
             <input
               className="w-full text-xs px-2 py-1 rounded-md border border-border/60 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all min-w-0"
               value={inc.name}
@@ -133,106 +103,93 @@ export default function FinanceSidebar({
               onChange={(e) => updateIncome(i, "value", e.target.value)}
               onFocus={(e) => e.target.select()}
             />
-            <button
-              onClick={() => {
-                if (window.confirm(`Delete income "${inc.name}"?`)) {
-                  removeIncome(i);
-                }
-              }}
-              className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 shrink-0"
-              title="Delete"
-            >
-              <X size={12} />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Income actions" aria-label={`Actions for ${inc.name}`}>
+                  <MoreHorizontal size={14} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem disabled={i === 0} onSelect={() => moveIncome(i, i - 1)}><ArrowUp size={14} /> Move up</DropdownMenuItem>
+                <DropdownMenuItem disabled={i === data.income.length - 1} onSelect={() => moveIncome(i, i + 1)}><ArrowDown size={14} /> Move down</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => {
+                  if (window.confirm(`Delete income "${inc.name}"?`)) removeIncome(i);
+                }}><Trash2 size={14} /> Delete income</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ))}
-        {/* Categories */}
-        <div className="flex items-center justify-between mt-2 mb-1 pt-2 pr-1">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Categories</p>
-          <button
-            onClick={addCategory}
-            className="text-muted-foreground hover:text-primary p-0.5 rounded hover:bg-accent transition-colors"
-            title="Add category"
-          >
-            <Plus size={12} />
-          </button>
-        </div>
-        {data.categories.map((cat, ci) => (
-          <div key={cat.id} className="pb-2">
+        {/* Expense and investment categories, kept in type order */}
+        {orderedCategories.map(({ category: cat, index: ci, type }, categoryIndex) => (
+          <Fragment key={cat.id}>
+          {categoryIndex === 0 || orderedCategories[categoryIndex - 1].type !== type ? (
+            <div className="mt-2 border-t border-border/60 pt-3" aria-hidden="true" />
+          ) : null}
+          <div className="pb-2">
             <div
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = "move";
-                setDraggedCategoryIdx(ci);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-              }}
-              onDrop={() => {
-                if (draggedCategoryIdx !== null && draggedCategoryIdx !== ci) {
-                  moveCategory(draggedCategoryIdx, ci);
-                }
-                setDraggedCategoryIdx(null);
-              }}
-              className={`flex items-center gap-1.5 pb-1 mb-1 border-b-2 group ${draggedCategoryIdx === ci ? "opacity-45" : ""}`}
+              className="flex items-center gap-1.5 pb-1 mb-1 border-b-2 group"
               style={{ borderBottomColor: cat.color }}
             >
-              <label className="relative cursor-pointer flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform">
-                <input
-                  type="color"
-                  value={cat.color}
-                  onChange={(e) => updateCategory(ci, "color", e.target.value)}
-                  className="sr-only"
-                />
-                <div 
-                  className="w-3.5 h-3.5 rounded-full shadow-sm flex-shrink-0"
-                  style={{ backgroundColor: cat.color }}
-                  title="Choose category color"
-                />
-              </label>
-              <div className="text-muted-foreground/30 group-hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors shrink-0 p-0.5" title="Drag category to reorder">
-                <GripVertical size={13} />
-              </div>
+              {type === "investment" ? (
+                <label className="relative flex h-6 w-5 cursor-pointer items-center justify-center text-violet-500 hover:text-violet-400" title="Choose investment color">
+                  <input
+                    type="color"
+                    value={cat.color}
+                    onChange={(e) => updateCategory(ci, "color", e.target.value)}
+                    className="sr-only"
+                  />
+                  <ChartNoAxesCombined size={14} style={{ color: cat.color }} />
+                </label>
+              ) : (
+                <label className="relative flex h-6 w-5 cursor-pointer items-center justify-center text-primary hover:text-primary/80" title="Choose expense color">
+                  <input
+                    type="color"
+                    value={cat.color}
+                    onChange={(e) => updateCategory(ci, "color", e.target.value)}
+                    className="sr-only"
+                  />
+                  <Receipt size={14} style={{ color: cat.color }} />
+                </label>
+              )}
               <input
                 className="flex-1 text-xs font-bold text-foreground bg-transparent border-none outline-none min-w-0"
                 value={cat.name}
                 onChange={(e) => updateCategory(ci, "name", e.target.value)}
                 onFocus={(e) => e.target.select()}
               />
-              <button
-                onClick={() => addItem(ci)}
-                className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-md hover:bg-accent/40 shrink-0"
-                title="Add item"
-              >
-                <Plus size={12} />
-              </button>
-              <button
-                onClick={() => {
-                  if (window.confirm(`Delete category "${cat.name}" and all its items?`)) {
-                    removeCategory(ci);
-                  }
-                }}
-                className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 shrink-0"
-                title="Delete category"
-              >
-                <X size={12} />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Category actions" aria-label={`Actions for ${cat.name}`}>
+                    <MoreHorizontal size={14} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onSelect={() => addItem(ci)}><Plus size={14} /> Add item</DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={categoryIndex === 0 || orderedCategories[categoryIndex - 1].type !== type}
+                    onSelect={() => moveCategory(ci, orderedCategories[categoryIndex - 1].index)}
+                  ><ArrowUp size={14} /> Move up</DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={categoryIndex === orderedCategories.length - 1 || orderedCategories[categoryIndex + 1].type !== type}
+                    onSelect={() => moveCategory(ci, orderedCategories[categoryIndex + 1].index)}
+                  ><ArrowDown size={14} /> Move down</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => updateCategory(ci, "type", "expense")}>
+                    <Receipt size={14} /> Set as expense
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => updateCategory(ci, "type", "investment")}>
+                    <ChartNoAxesCombined size={14} /> Set as investment
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => {
+                    if (window.confirm(`Delete category "${cat.name}" and all its items?`)) removeCategory(ci);
+                  }}><Trash2 size={14} /> Delete category</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {cat.items.map((item, ii) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  handleItemDragStart(ci, ii);
-                }}
-                onDragOver={handleItemDragOver}
-                onDrop={() => handleItemDrop(ci, ii)}
-                className={`grid grid-cols-[14px_minmax(0,1fr)_64px_24px] items-center gap-1 ml-2 my-0.5 group ${draggedItemIdx?.ci === ci && draggedItemIdx?.ii === ii ? "opacity-45" : ""}`}
-              >
-                <div className="text-muted-foreground/30 group-hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors shrink-0 p-0.5" title="Drag item to reorder">
-                  <GripVertical size={13} />
-                </div>
+              <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_64px_24px] items-center gap-1 ml-2 my-0.5 group">
                 <input
                   className="w-full text-xs px-2 py-1 rounded-md border border-border/60 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all min-w-0"
                   value={item.name}
@@ -248,21 +205,26 @@ export default function FinanceSidebar({
                   onChange={(e) => updateItem(ci, ii, "value", e.target.value)}
                   onFocus={(e) => e.target.select()}
                 />
-                <button
-                  onClick={() => {
-                    if (window.confirm(`Delete item "${item.name}"?`)) {
-                      removeItem(ci, ii);
-                    }
-                  }}
-                  className="opacity-100 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 shrink-0"
-                  title="Delete item"
-                >
-                  <X size={12} />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Item actions" aria-label={`Actions for ${item.name}`}>
+                      <MoreHorizontal size={14} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem disabled={ii === 0} onSelect={() => moveItem(ci, ii, ii - 1)}><ArrowUp size={14} /> Move up</DropdownMenuItem>
+                    <DropdownMenuItem disabled={ii === cat.items.length - 1} onSelect={() => moveItem(ci, ii, ii + 1)}><ArrowDown size={14} /> Move down</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => {
+                      if (window.confirm(`Delete item "${item.name}"?`)) removeItem(ci, ii);
+                    }}><Trash2 size={14} /> Delete item</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
             {/* Removed add item block button */}
           </div>
+          </Fragment>
         ))}
       </div>
     </aside>

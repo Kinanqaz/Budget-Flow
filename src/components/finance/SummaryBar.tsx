@@ -9,6 +9,8 @@ export default function SummaryBar({ stats }: { stats: Stats }) {
       Your total budget is{" "}
       <span className="font-bold text-primary">{fmt(stats.income)}</span> and your expenses are{" "}
       <span className="font-bold text-primary">{fmt(stats.expenses)}</span>.{" "}
+      Investments are{" "}
+      <span className="font-bold text-violet-500">{fmt(stats.investments)}</span>.{" "}
       You have{" "}
       <span className={`font-semibold ${stats.remaining >= 0 ? "text-positive" : "text-negative"}`}>
         {fmt(stats.remaining)}

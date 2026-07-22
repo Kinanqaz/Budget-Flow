@@ -17,10 +17,14 @@ export interface ExpenseItem {
   noticePeriod?: string;
 }
 
+export type CategoryType = "expense" | "investment";
+
 export interface Category {
   id: string;
   name: string;
   color: string;
+  /** Categories saved before investment support are treated as expenses. */
+  type?: CategoryType;
   items: ExpenseItem[];
 }
 
@@ -34,6 +38,9 @@ export interface FinanceData {
 export interface Stats {
   income: number;
   expenses: number;
+  investments: number;
   remaining: number;
   cats: (Category & { total: number })[];
+  expenseCats: (Category & { total: number })[];
+  investmentCats: (Category & { total: number })[];
 }

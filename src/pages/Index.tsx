@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import FinanceSidebar from "@/components/finance/FinanceSidebar";
 import SankeyChart from "@/components/finance/SankeyChart";
 import AuthBar from "@/components/finance/AuthBar";
-import { PanelLeftOpen, Split, PieChart, Table, Settings, BarChart3 } from "lucide-react";
+import { ChevronRight, Split, PieChart, Table, Settings, BarChart3 } from "lucide-react";
 import DonutChart from "@/components/finance/DonutChart";
 import FinanceTable from "@/components/finance/FinanceTable";
 import AnalysisPanel from "@/components/finance/AnalysisPanel";
@@ -37,7 +37,7 @@ const Index = () => {
   return (
     <div className="flex h-screen overflow-hidden relative">
       {/* Sidebar Overlay backdrop on mobile */}
-      {sidebarOpen && chartType !== "analyses" && (
+      {sidebarOpen && (
         <div 
           onClick={() => setSidebarOpen(false)}
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
@@ -45,10 +45,8 @@ const Index = () => {
       )}
 
       <div
-        className={`${chartType === "analyses" ? "hidden" : "transition-all duration-300 ease-in-out"} ${
-          chartType === "analyses"
-            ? "w-0 min-w-0"
-            : sidebarOpen
+        className={`transition-all duration-300 ease-in-out ${
+          sidebarOpen
             ? "w-[300px] min-w-[300px] md:relative fixed inset-y-0 left-0 z-50 shadow-2xl md:shadow-none" 
             : "w-0 min-w-0 md:relative fixed inset-y-0 left-0"
         } overflow-hidden`}
@@ -76,13 +74,14 @@ const Index = () => {
         <div className="flex items-center justify-between gap-2.5 mb-4 select-none w-full flex-nowrap">
           {/* Left: Sidebar Toggle */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {!sidebarOpen && chartType !== "analyses" && (
+            {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="w-11 h-11 flex items-center justify-center rounded-xl bg-background md:bg-card border border-border hover:bg-accent transition-colors shrink-0"
+                className="flex h-8 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
                 title="Open sidebar"
+                aria-label="Open sidebar"
               >
-                <PanelLeftOpen size={18} className="text-foreground" />
+                <ChevronRight size={18} />
               </button>
             )}
           </div>

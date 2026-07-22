@@ -85,9 +85,8 @@ const getCategoryItemColor = (catColor: string, itemIndex: number, totalItems: n
   return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
 };
 
-export default function SankeyChart({ data, stats, showPercent = false, currency = "€" }: Props) {
+export default function SankeyChart({ data, stats, showPercent = false, currency = "€", mobileZoom = 1 }: Props) {
   const isMobile = useIsMobile();
-  const mobileZoom = (arguments[0] as Props).mobileZoom ?? 1;
   const chartScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

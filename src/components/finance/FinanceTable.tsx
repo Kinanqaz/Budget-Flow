@@ -1,12 +1,14 @@
-import React, { useMemo, useState } from "react";
-import type { FinanceData, ExpenseItem, Stats } from "@/types/finance";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { FinanceData, ExpenseItem, Stats, CategoryType } from "@/types/finance";
 import { 
-  AlertTriangle, Armchair, Bike, BriefcaseBusiness, Car, Circle, Clock, Coffee,
-  Dumbbell, Gamepad2, GraduationCap, HeartPulse, Home, Music, Plane, ShoppingBag,
-  ShoppingCart, Smartphone, Trash2, Tv, Utensils, Wifi
+  AlertTriangle, Armchair, BadgeDollarSign, Bike, Brain, BriefcaseBusiness, Car, Circle, Clock, Coffee,
+  Dumbbell, Gamepad2, GraduationCap, HeartPulse, Home, Music, Plane, ShieldCheck, ShoppingBag,
+  CheckCircle, ChartNoAxesCombined, Palette, ShoppingCart, SmilePlus, Smartphone, Trash2, Tv, Utensils, Wifi, Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Props {
   data: FinanceData;
@@ -19,9 +21,9 @@ interface Props {
 interface FlattenedItem {
   categoryIndex: number;
   itemIndex: number;
-  categoryId: string;
   categoryName: string;
   categoryColor: string;
+  categoryType: CategoryType;
   item: ExpenseItem;
 }
 
@@ -40,6 +42,12 @@ const itemIcons: Record<string, LucideIcon> = {
   games: Gamepad2,
   travel: Plane,
   health: HeartPulse,
+  insurance: ShieldCheck,
+  dental: SmilePlus,
+  brain: Brain,
+  electricity: Zap,
+  investment: BadgeDollarSign,
+  chart: ChartNoAxesCombined,
   fitness: Dumbbell,
   education: GraduationCap,
   work: BriefcaseBusiness,
@@ -47,6 +55,55 @@ const itemIcons: Record<string, LucideIcon> = {
 };
 
 const iconChoices = Object.entries(itemIcons);
+
+const withAlpha = (color: string, alpha: number) => {
+  const hex = color.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return color;
+  const red = parseInt(hex.slice(0, 2), 16);
+  const green = parseInt(hex.slice(2, 4), 16);
+  const blue = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
+
+const TABLE_COLUMN_WIDTHS_KEY = "budgetflow-table-column-widths";
+const MOBILE_TABLE_COLUMN_WIDTHS_KEY = "budgetflow-mobile-table-column-widths";
+const TABLE_CATEGORY_COLORS_KEY = "budgetflow-table-category-colors";
+const defaultColumnWidths: Record<string, number> = {
+  name: 180,
+  monthly: 110,
+  annual: 110,
+  percentage: 64,
+  dates: 230,
+  infos: 150,
+  actions: 50,
+};
+
+const mobileColumnWidths: Record<string, number> = {
+  name: 180,
+  monthly: 100,
+  annual: 100,
+  percentage: 60,
+  dates: 190,
+  infos: 150,
+  actions: 44,
+};
+
+const loadColumnWidths = (storageKey: string, defaults: Record<string, number>) => {
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) return defaults;
+
+    const parsed = JSON.parse(saved) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(defaults).map(([column, defaultWidth]) => [
+        column,
+        typeof parsed[column] === "number" && parsed[column] >= 50 ? parsed[column] : defaultWidth,
+      ])
+    );
+  } catch {
+    return defaults;
+  }
+};
 
 const parseCSVLine = (line: string): string[] => {
   const result: string[] = [];
@@ -135,50 +192,86 @@ export default function FinanceTable({
   removeItem,
   currency,
 }: Props) {
+  const isMobile = useIsMobile();
   const [activeDateEditorItemId, setActiveDateEditorItemId] = useState<string | null>(null);
   const [iconPickerItemId, setIconPickerItemId] = useState<string | null>(null);
   const [datePopoverPos, setDatePopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const datePopoverRef = useRef<HTMLDivElement>(null);
+  const iconPickerRef = useRef<HTMLDivElement>(null);
 
   const [columns, setColumns] = useState<string[]>([
     "name",
     "monthly",
     "annual",
-    "notice",
+    "percentage",
     "dates",
     "infos",
     "actions",
   ]);
-  const [colWidths, setColWidths] = useState<Record<string, number>>({
-    name: 180,
-    monthly: 110,
-    annual: 110,
-    notice: 140,
-    dates: 180,
-    infos: 150,
-    actions: 50,
-  });
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColumnWidths(TABLE_COLUMN_WIDTHS_KEY, defaultColumnWidths));
+  const [mobileColWidths, setMobileColWidths] = useState<Record<string, number>>(() => loadColumnWidths(MOBILE_TABLE_COLUMN_WIDTHS_KEY, mobileColumnWidths));
   const [draggedColIdx, setDraggedColIdx] = useState<number | null>(null);
+  const [colorRows, setColorRows] = useState(() => {
+    try {
+      return localStorage.getItem(TABLE_CATEGORY_COLORS_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
 
-  const startResize = (e: React.MouseEvent, col: string) => {
+  const getColumnWidth = (column: string) => (isMobile ? mobileColWidths[column] : colWidths[column]);
+  const formatPercentage = (value: number) =>
+    stats.income > 0 ? `${Math.round((value / stats.income) * 100)}%` : "0%";
+
+  useEffect(() => {
+    localStorage.setItem(TABLE_COLUMN_WIDTHS_KEY, JSON.stringify(colWidths));
+  }, [colWidths]);
+
+  useEffect(() => {
+    localStorage.setItem(MOBILE_TABLE_COLUMN_WIDTHS_KEY, JSON.stringify(mobileColWidths));
+  }, [mobileColWidths]);
+
+  useEffect(() => {
+    localStorage.setItem(TABLE_CATEGORY_COLORS_KEY, String(colorRows));
+  }, [colorRows]);
+
+  useEffect(() => {
+    if (!iconPickerItemId) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (iconPickerRef.current && !iconPickerRef.current.contains(event.target as Node)) {
+        setIconPickerItemId(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [iconPickerItemId]);
+
+  const startResize = (e: React.PointerEvent, col: string) => {
     e.preventDefault();
+    e.stopPropagation();
     const startX = e.clientX;
-    const startWidth = colWidths[col] || 100;
+    const pointerId = e.pointerId;
+    const activeWidths = isMobile ? mobileColWidths : colWidths;
+    const startWidth = activeWidths[col] || 100;
 
-    const doDrag = (moveEvent: MouseEvent) => {
+    const doDrag = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
       const deltaX = moveEvent.clientX - startX;
-      setColWidths((prev) => ({
-        ...prev,
-        [col]: Math.max(50, startWidth + deltaX),
-      }));
+      const updateWidths = isMobile ? setMobileColWidths : setColWidths;
+      updateWidths((prev) => ({ ...prev, [col]: Math.max(50, startWidth + deltaX) }));
     };
 
     const stopDrag = () => {
-      document.removeEventListener("mousemove", doDrag);
-      document.removeEventListener("mouseup", stopDrag);
+      document.removeEventListener("pointermove", doDrag);
+      document.removeEventListener("pointerup", stopDrag);
+      document.removeEventListener("pointercancel", stopDrag);
     };
 
-    document.addEventListener("mousemove", doDrag);
-    document.addEventListener("mouseup", stopDrag);
+    document.addEventListener("pointermove", doDrag);
+    document.addEventListener("pointerup", stopDrag);
+    document.addEventListener("pointercancel", stopDrag);
   };
 
   // Local state to hold the formatted date strings (DD.MM.YYYY) while typing
@@ -213,6 +306,21 @@ export default function FinanceTable({
     setTempDates(null);
     setDatePopoverPos(null);
   };
+
+  useLayoutEffect(() => {
+    if (!activeDateEditorItemId || !datePopoverPos || !datePopoverRef.current) return;
+
+    const popover = datePopoverRef.current.getBoundingClientRect();
+    const padding = 8;
+    const maxTop = Math.max(padding, window.innerHeight - popover.height - padding);
+    const maxLeft = Math.max(padding, window.innerWidth - popover.width - padding);
+    const top = Math.min(Math.max(datePopoverPos.top, padding), maxTop);
+    const left = Math.min(Math.max(datePopoverPos.left, padding), maxLeft);
+
+    if (top !== datePopoverPos.top || left !== datePopoverPos.left) {
+      setDatePopoverPos({ top, left });
+    }
+  }, [activeDateEditorItemId, datePopoverPos]);
 
   const handleTempDateChange = (
     field: "startDate" | "endDate" | "cancellationDate",
@@ -256,30 +364,30 @@ export default function FinanceTable({
     }
   };
 
-  // Flatten nested items for tabular display, excluding income/salary items
+  // Flatten nested items for tabular display, keeping expenses and investments in separate sections.
   const flattenedItems = useMemo(() => {
     const list: FlattenedItem[] = [];
     data.categories.forEach((category, ci) => {
       const catLower = category.name.toLowerCase();
-      if (catLower === "income" || catLower === "salary" || catLower.includes("salary") || catLower.includes("income")) {
+      if (category.type !== "investment" && (catLower === "income" || catLower === "salary" || catLower.includes("salary") || catLower.includes("income"))) {
         return;
       }
       category.items.forEach((item, ii) => {
         const itemLower = item.name.toLowerCase();
-        if (itemLower === "income" || itemLower === "salary" || itemLower.includes("salary") || itemLower.includes("income")) {
+        if (category.type !== "investment" && (itemLower === "income" || itemLower === "salary" || itemLower.includes("salary") || itemLower.includes("income"))) {
           return;
         }
         list.push({
           categoryIndex: ci,
           itemIndex: ii,
-          categoryId: category.id,
           categoryName: category.name,
           categoryColor: category.color,
+          categoryType: category.type || "expense",
           item,
         });
       });
     });
-    return list;
+    return list.sort((a, b) => Number(a.categoryType === "investment") - Number(b.categoryType === "investment"));
   }, [data.categories]);
 
   // Notice alerts configuration
@@ -299,60 +407,104 @@ export default function FinanceTable({
   }, [flattenedItems]);
 
   const activeWarnings = useMemo(() => {
-    return noticeAlerts.filter((alert) => alert.diffDays >= 0 && alert.diffDays <= 90);
+    return noticeAlerts.filter((alert) => alert.diffDays <= 90);
   }, [noticeAlerts]);
 
+  const warningStatuses = useMemo(() => {
+    const statuses = new Map<string, { label: string; tone: "destructive" | "warning" | "muted"; count: number }>();
+    activeWarnings.forEach((warning) => {
+      const expired = warning.diffDays < 0;
+      const urgent = warning.diffDays >= 0 && warning.diffDays <= 30;
+      const key = expired ? "expired" : urgent ? "urgent" : "upcoming";
+      const label = expired ? "Expired" : urgent ? "Urgent" : "Upcoming";
+      const tone = expired ? "muted" : urgent ? "destructive" : "warning";
+      const current = statuses.get(key);
+      statuses.set(key, { label, tone, count: (current?.count || 0) + 1 });
+    });
+    return Array.from(statuses.values());
+  }, [activeWarnings]);
+
   const totals = useMemo(() => {
-    const monthly = flattenedItems.reduce((sum, fi) => sum + (fi.item.value || 0), 0);
+    const expenseMonthly = flattenedItems
+      .filter((fi) => fi.categoryType === "expense")
+      .reduce((sum, fi) => sum + (fi.item.value || 0), 0);
+    const investmentMonthly = flattenedItems
+      .filter((fi) => fi.categoryType === "investment")
+      .reduce((sum, fi) => sum + (fi.item.value || 0), 0);
     return {
-      monthly: Math.round(monthly * 100) / 100,
-      annual: Math.round(monthly * 12 * 100) / 100,
+      expenses: {
+        monthly: Math.round(expenseMonthly * 100) / 100,
+        annual: Math.round(expenseMonthly * 12 * 100) / 100,
+      },
+      investments: {
+        monthly: Math.round(investmentMonthly * 100) / 100,
+        annual: Math.round(investmentMonthly * 12 * 100) / 100,
+      },
     };
   }, [flattenedItems]);
 
+  const renderSectionTotal = (total: { monthly: number; annual: number }, label = "Total", emphasized = true) => (
+    <tr className={`border-t ${emphasized ? "border-primary/40 bg-primary/5" : "border-border/70 bg-muted/20"} text-sm`}>
+      {columns.map((col) => {
+        const width = getColumnWidth(col);
+        if (col === "name") {
+          return <td key={col} style={{ width, maxWidth: width }} className={`px-4 py-2.5 ${emphasized ? "text-foreground" : "text-muted-foreground"}`}>{label}</td>;
+        }
+        if (col === "monthly") {
+          return <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 font-display text-foreground">{total.monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })} {currency}</td>;
+        }
+        if (col === "annual") {
+          return <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 font-display text-foreground">{total.annual.toLocaleString(undefined, { maximumFractionDigits: 2 })} {currency}</td>;
+        }
+        if (col === "percentage") {
+          return <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 font-display text-foreground">{formatPercentage(total.monthly)}</td>;
+        }
+        return <td key={col} style={{ width, maxWidth: width }} />;
+      })}
+    </tr>
+  );
+
   return (
     <div className="flex flex-col h-full w-full space-y-4">
+      <div className="order-last relative z-10 flex shrink-0 items-center justify-end gap-2 rounded-xl bg-background px-2 py-2 md:order-first">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <Palette size={14} />
+          <span>Category colors</span>
+        </div>
+        <Switch checked={colorRows} onCheckedChange={setColorRows} aria-label="Color table rows by category" />
+      </div>
+
       {/* Notice alerts banner */}
       {activeWarnings.length > 0 && (
-        <div className="bg-destructive/15 border border-destructive/35 rounded-xl p-3 flex items-start gap-3 text-destructive-foreground">
-          <AlertTriangle className="text-destructive shrink-0 mt-0.5" size={18} />
-          <div className="flex-1 text-xs">
-            <span className="font-bold block text-sm mb-1 text-destructive">
-              Notice Cancellation Warnings ({activeWarnings.length})
-            </span>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
-              {activeWarnings.map((w, idx) => (
-                <div key={idx} className="flex items-center gap-1">
-                  <span className="font-semibold">{w.item.name}</span> in{" "}
-                  <span className="opacity-85 font-medium" style={{ color: w.categoryColor }}>
-                    {w.categoryName}
-                  </span>{" "}
-                  notice date is on{" "}
-                  <span className="font-bold underline">
-                    {formatDateForDisplay(w.item.cancellationDate)}
-                  </span>{" "}
-                  ({w.diffDays === 0 ? "today" : `${w.diffDays} days left`})
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-2 py-1.5 text-xs">
+            {warningStatuses.map((status) => (
+              <span
+                key={status.label}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${status.tone === "destructive" ? "bg-destructive/15 text-destructive" : status.tone === "muted" ? "bg-muted text-muted-foreground" : "bg-amber-500/10 text-amber-500"}`}
+              >
+                <Clock size={10} /> {status.label} {status.count}
+              </span>
+            ))}
         </div>
       )}
 
       {/* Main Table area */}
-      <div className="flex-1 bg-card border border-border/70 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0 ring-1 ring-border/10">
+      <div className="flex-1 bg-card border-2 border-border/80 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0">
         <div className="flex-1 overflow-auto scrollbar-thin">
-          <table className="w-full text-left border-collapse min-w-[800px]" style={{ tableLayout: "fixed" }}>
+          <table
+            className="w-full text-left border-collapse min-w-[842px] [&_th:not(:last-child)]:border-r [&_th:not(:last-child)]:border-border/30 [&_td:not(:last-child)]:border-r [&_td:not(:last-child)]:border-border/30"
+            style={{ tableLayout: "fixed" }}
+          >
             <thead className="sticky top-0 z-10 shadow-sm">
               <tr className="bg-card/95 backdrop-blur border-b border-border/70 text-xs uppercase font-bold text-muted-foreground tracking-wider select-none">
                 {columns.map((col, idx) => {
-                  const width = colWidths[col];
+                  const width = getColumnWidth(col);
                   let title = "";
                   let alignClass = "text-left";
-                  if (col === "name") title = "Expense Name";
+                  if (col === "name") title = "Budget Item";
                   else if (col === "monthly") title = `Monthly (${currency})`;
                   else if (col === "annual") title = `Annual (${currency})`;
-                  else if (col === "notice") title = "Notice";
+                  else if (col === "percentage") title = "%";
                   else if (col === "dates") title = "Dates / Contract";
                   else if (col === "infos") title = "Infos / Notes";
                   else if (col === "actions") { title = ""; alignClass = "text-center"; }
@@ -383,8 +535,8 @@ export default function FinanceTable({
                       </div>
                       {col !== "actions" && (
                         <div
-                          onMouseDown={(e) => startResize(e, col)}
-                          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 bg-border/40 transition-colors"
+                          onPointerDown={(e) => startResize(e, col)}
+                          className="absolute right-0 top-0 bottom-0 z-10 w-3 touch-none cursor-col-resize after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border/40 hover:after:bg-primary/50"
                           title="Drag to resize column"
                         />
                       )}
@@ -397,12 +549,14 @@ export default function FinanceTable({
               {flattenedItems.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="py-12 text-center text-muted-foreground font-medium">
-                    No expense items found. Import a CSV to get started.
+                    No expense or investment items found. Import a CSV to get started.
                   </td>
                 </tr>
               ) : (
-                flattenedItems.map((fi) => {
+                flattenedItems.map((fi, index) => {
                   const { item, categoryIndex: ci, itemIndex: ii } = fi;
+                  const endsSection = index === flattenedItems.length - 1 || flattenedItems[index + 1].categoryType !== fi.categoryType;
+                  const startsSection = index > 0 && flattenedItems[index - 1].categoryType !== fi.categoryType;
 
                   // Compute notice alert status
                   let alertBadge = null;
@@ -431,26 +585,38 @@ export default function FinanceTable({
                             <AlertTriangle size={10} /> {diffDays}d left
                           </span>
                         );
+                      } else {
+                        alertBadge = (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/15 text-center justify-center min-w-[70px]">
+                            <CheckCircle size={10} /> On track
+                          </span>
+                        );
                       }
                     }
 
                   return (
+                    <React.Fragment key={item.id}>
+                    {startsSection && (
+                      <tr aria-hidden="true">
+                        <td colSpan={columns.length} className="h-0.5 bg-border p-0" />
+                      </tr>
+                    )}
                     <tr
-                      key={item.id}
                       className="even:bg-muted/10 hover:bg-accent/35 group transition-colors"
+                      style={colorRows ? { backgroundColor: withAlpha(fi.categoryColor, 0.12) } : undefined}
                     >
                       {columns.map((col) => {
-                        const width = colWidths[col];
+                        const width = getColumnWidth(col);
                         if (col === "name") {
                           return (
                             <td
                               key={col}
-                              style={{ borderLeftColor: fi.categoryColor, width, maxWidth: width }}
-                              className="py-1.5 px-4 border-l-[3px] border-l-transparent transition-all overflow-visible"
+                              style={{ borderLeftColor: withAlpha(fi.categoryColor, colorRows ? 0.5 : 0.38), width, maxWidth: width }}
+                              className="py-1.5 px-4 border-l border-l-transparent transition-all overflow-visible"
                               title={`Category: ${fi.categoryName}`}
                             >
                               <div className="flex items-center gap-1.5 w-full">
-                                <div className="relative shrink-0">
+                                <div ref={iconPickerItemId === item.id ? iconPickerRef : undefined} className="relative shrink-0">
                                   {(() => {
                                     const ItemIcon = itemIcons[item.icon || ""] || Circle;
                                     return (
@@ -461,7 +627,7 @@ export default function FinanceTable({
                                         title="Choose item icon"
                                         aria-label={`Choose icon for ${item.name}`}
                                       >
-                                        <ItemIcon size={14} />
+                                        <ItemIcon size={14} style={!colorRows ? { color: fi.categoryColor } : undefined} />
                                       </button>
                                     );
                                   })()}
@@ -503,7 +669,7 @@ export default function FinanceTable({
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  className="min-w-0 flex-1 bg-transparent border-none outline-none text-foreground text-left font-mono font-medium"
+                                  className="min-w-0 flex-1 bg-transparent border-none outline-none text-muted-foreground text-left font-display font-normal"
                                   value={
                                     (editingValue && editingValue.id === item.id && editingValue.field === "monthly")
                                       ? editingValue.val
@@ -527,9 +693,6 @@ export default function FinanceTable({
                                     setEditingValue(null);
                                   }}
                                 />
-                                <span className="text-xs text-muted-foreground/80 font-mono shrink-0 select-none px-1">
-                                  ({stats.income > 0 ? Math.round((item.value / stats.income) * 100) : 0}%)
-                                </span>
                               </div>
                             </td>
                           );
@@ -542,7 +705,7 @@ export default function FinanceTable({
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  className="w-full bg-transparent border-none outline-none text-foreground text-left font-mono font-medium"
+                                  className="w-full bg-transparent border-none outline-none text-muted-foreground text-left font-display font-normal"
                                   value={
                                     (editingValue && editingValue.id === item.id && editingValue.field === "annual")
                                       ? editingValue.val
@@ -574,28 +737,17 @@ export default function FinanceTable({
                             </td>
                           );
                         }
-
-                        if (col === "notice") {
+                        if (col === "percentage") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 overflow-hidden">
-                              {item.cancellationDate ? (
-                                <div className="flex flex-col gap-1 select-none">
-                                  <span className="text-xs font-mono font-semibold text-foreground">
-                                    {formatDateForDisplay(item.cancellationDate)}
-                                  </span>
-                                  <div className="flex items-center">
-                                    {alertBadge}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground/45 italic">-</span>
-                              )}
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 overflow-hidden font-display text-muted-foreground">
+                              {formatPercentage(item.value || 0)}
                             </td>
                           );
                         }
+
                         if (col === "dates") {
                           return (
-                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 relative">
+                            <td key={col} style={{ width, maxWidth: width }} className="py-1.5 px-4 relative overflow-visible">
                               <div className="flex items-center gap-2 select-none">
                                 <button
                                   onClick={(e) => {
@@ -605,10 +757,10 @@ export default function FinanceTable({
                                       openDateEditor(item, e.currentTarget as HTMLElement);
                                     }
                                   }}
-                                  className="flex flex-col text-left hover:bg-muted/40 p-1 rounded border border-transparent hover:border-border/30 transition-all w-full truncate"
+                                  className="flex min-w-0 flex-1 flex-col text-left hover:bg-muted/40 p-1 rounded border border-transparent hover:border-border/30 transition-all truncate"
                                   title="Click to configure dates"
                                 >
-                                  <span className="font-semibold text-xs text-foreground block leading-tight truncate">
+                                  <span className="font-display font-normal text-xs text-muted-foreground block leading-tight truncate">
                                     {item.startDate || item.endDate ? (
                                       `${formatDateForDisplay(item.startDate) || "..."} - ${formatDateForDisplay(item.endDate) || "..."}`
                                     ) : (
@@ -616,13 +768,17 @@ export default function FinanceTable({
                                     )}
                                   </span>
                                 </button>
+                                {item.cancellationDate && (
+                                  <div className="flex shrink-0 items-center">{alertBadge}</div>
+                                )}
                               </div>
 
                               {activeDateEditorItemId === item.id && (
                                 <>
                                   <div className="fixed inset-0 z-[9998]" onClick={closeDateEditor} />
                                   <div
-                                    className="fixed bg-card border border-border/90 rounded-2xl shadow-xl p-4 z-[9999] min-w-[260px] space-y-3 animate-in fade-in slide-in-from-top-2 duration-150"
+                                    ref={datePopoverRef}
+                                    className="fixed max-h-[calc(100vh-1rem)] overflow-y-auto bg-card border border-border/90 rounded-2xl shadow-xl p-4 z-[9999] min-w-[260px] space-y-3 animate-in fade-in slide-in-from-top-2 duration-150"
                                     style={datePopoverPos ? { top: datePopoverPos.top, left: datePopoverPos.left } : {}}
                                   >
                                     <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
@@ -743,39 +899,13 @@ export default function FinanceTable({
                         return null;
                       })}
                     </tr>
-                  );
-                })
+                    {endsSection && renderSectionTotal(fi.categoryType === "investment" ? totals.investments : totals.expenses)}
+                  </React.Fragment>
+                );
+              })
               )}
+              {renderSectionTotal({ monthly: stats.remaining, annual: stats.remaining * 12 }, "Remaining", true)}
             </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-border/80 bg-muted/25 text-sm font-semibold">
-                {columns.map((col) => {
-                  const width = colWidths[col];
-                  if (col === "name") {
-                    return (
-                      <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 text-muted-foreground">
-                        Total
-                      </td>
-                    );
-                  }
-                  if (col === "monthly") {
-                    return (
-                      <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 font-mono text-foreground">
-                        {totals.monthly.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                      </td>
-                    );
-                  }
-                  if (col === "annual") {
-                    return (
-                      <td key={col} style={{ width, maxWidth: width }} className="px-4 py-2.5 font-mono text-foreground">
-                        {totals.annual.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
-                      </td>
-                    );
-                  }
-                  return <td key={col} style={{ width, maxWidth: width }} />;
-                })}
-              </tr>
-            </tfoot>
           </table>
         </div>
 

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { FinanceData, Stats, ExpenseItem } from "@/types/finance";
+import type { FinanceData, Stats, ExpenseItem, CategoryType } from "@/types/finance";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
@@ -13,28 +13,28 @@ const defaultData: FinanceData = {
   income: [{ id: "i0", name: "Income", value: 3000 }],
   categories: [
     {
-      id: "c0", name: "Housing", color: "#FF8B7B", items: [
-        { id: "w0", name: "Rent", value: 800 },
-        { id: "w1", name: "Utilities", value: 150 },
-        { id: "w2", name: "Insurance", value: 50 },
+      id: "c0", name: "Housing", color: "#FF8B7B", type: "expense", items: [
+        { id: "w0", name: "Rent", value: 800, icon: "home", startDate: "2025-01-01", endDate: "2026-12-31", noticePeriod: "3", cancellationDate: "2026-09-30", infos: "Main apartment" },
+        { id: "w1", name: "Utilities", value: 150, icon: "electricity", endDate: "2026-07-31", noticePeriod: "1", cancellationDate: "2026-06-30", infos: "Electricity and water" },
+        { id: "w2", name: "Insurance", value: 50, icon: "insurance", endDate: "2026-08-15", noticePeriod: "1", cancellationDate: "2026-07-15" },
       ],
     },
     {
-      id: "c1", name: "Living", color: "#FFE066", items: [
-        { id: "t0", name: "Groceries", value: 400 },
-        { id: "t1", name: "Transport", value: 100 },
-        { id: "t2", name: "Leisure", value: 150 },
+      id: "c1", name: "Living", color: "#FFE066", type: "expense", items: [
+        { id: "t0", name: "Groceries", value: 400, icon: "shopping", infos: "Weekly shopping" },
+        { id: "t1", name: "Transport", value: 100, icon: "car" },
+        { id: "t2", name: "Leisure", value: 150, icon: "games", endDate: "2026-08-10", noticePeriod: "custom", cancellationDate: "2026-08-01" },
       ],
     },
     {
-      id: "c2", name: "Savings & Investments", color: "#4DB6AC", items: [
-        { id: "iv0", name: "ETF Plan", value: 500 },
-        { id: "iv1", name: "Savings Account", value: 200 },
+      id: "c2", name: "Savings & Investments", color: "#4DB6AC", type: "investment", items: [
+        { id: "iv0", name: "ETF Plan", value: 500, icon: "investment", infos: "Monthly index fund" },
+        { id: "iv1", name: "Savings Account", value: 200, icon: "investment" },
       ],
     },
     {
-      id: "c3", name: "Other", color: "#64B5F6", items: [
-        { id: "s0", name: "Reserves", value: 650 },
+      id: "c3", name: "Other", color: "#64B5F6", type: "expense", items: [
+        { id: "s0", name: "Reserves", value: 650, icon: "health", infos: "Emergency fund" },
       ],
     },
   ],
@@ -134,8 +134,19 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
       ...c,
       total: Math.round(c.items.reduce((s, i) => s + (i.value || 0), 0)),
     }));
-    const expenses = cats.reduce((s, c) => s + c.total, 0);
-    return { income, cats, expenses, remaining: income - expenses };
+    const expenseCats = cats.filter((category) => category.type !== "investment");
+    const investmentCats = cats.filter((category) => category.type === "investment");
+    const expenses = expenseCats.reduce((s, c) => s + c.total, 0);
+    const investments = investmentCats.reduce((s, c) => s + c.total, 0);
+    return {
+      income,
+      cats,
+      expenseCats,
+      investmentCats,
+      expenses,
+      investments,
+      remaining: income - expenses - investments,
+    };
   }, [data]);
 
   const loadFromServer = useCallback(async () => {
@@ -204,7 +215,7 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     setData((d) => ({ ...d, income: d.income.filter((_, i) => i !== index) }));
   }, []);
 
-  const updateCategory = useCallback((ci: number, field: "name" | "color", val: string) => {
+  const updateCategory = useCallback((ci: number, field: "name" | "color" | "type", val: string) => {
     setData((d) => {
       const categories = [...d.categories];
       categories[ci] = { ...categories[ci], [field]: val };
@@ -212,13 +223,13 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
     });
   }, []);
 
-  const addCategory = useCallback(() => {
+  const addCategory = useCallback((type: CategoryType = "expense") => {
     const colors = ["#FF8B7B", "#FFE066", "#4DB6AC", "#64B5F6", "#CE93D8", "#FFCC80", "#EF9A9A", "#A5D6A7"];
     setData((d) => ({
       ...d,
       categories: [
         ...d.categories,
-        { id: uid(), name: "New Category", color: colors[d.categories.length % colors.length], items: [] },
+        { id: uid(), name: type === "investment" ? "New Investment" : "New Category", color: colors[d.categories.length % colors.length], type, items: [] },
       ],
     }));
   }, []);
@@ -260,7 +271,18 @@ export function useFinanceData(userId: string | undefined, authenticated: boolea
   const addItem = useCallback((ci: number) => {
     setData((d) => {
       const categories = [...d.categories];
-      categories[ci] = { ...categories[ci], items: [...categories[ci].items, { id: uid(), name: "New", value: 0 }] };
+      categories[ci] = {
+        ...categories[ci],
+        items: [
+          ...categories[ci].items,
+          {
+            id: uid(),
+            name: "New",
+            value: 0,
+            ...(categories[ci].type === "investment" ? { icon: "investment" } : {}),
+          },
+        ],
+      };
       return { ...d, categories };
     });
   }, []);
